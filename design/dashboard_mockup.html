@@ -1,0 +1,857 @@
+<title>Trading Journal — Dashboard</title>
+<style>
+  :root {
+    --olive: #6E7A34;
+    --olive-dark: #525C27;
+    --olive-light: #A9B36B;
+    --win: #4F7A5E;
+    --loss: #A8574A;
+    --bg: #FAF8F2;
+    --card: #F1EFE6;
+    --text: #2B2B26;
+    --muted: #6B6B60;
+    --grid: #E4E1D5;
+    --serif: Iowan Old Style, Georgia, ui-serif, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 152px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+
+  /* --- Sidebar --- */
+  .sidebar { border-right: 1px solid var(--grid); padding: 22px 14px; }
+  .sidebar .brand {
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 14px 4px;
+  }
+  .sidebar nav { display: flex; flex-direction: column; gap: 1px; }
+  .sidebar a {
+    display: block; padding: 6px 9px; border-radius: 5px;
+    color: var(--text); text-decoration: none; font-size: 13px;
+  }
+  .sidebar a:hover { background: var(--card); }
+  .sidebar a:focus-visible { outline: 2px solid var(--olive); outline-offset: 1px; }
+  .sidebar a.current { background: var(--card); font-weight: 600; color: var(--olive-dark); }
+
+  /* --- Main --- */
+  main { padding: 28px 36px 56px; max-width: 1080px; }
+
+  .page-head { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
+  .page-head h1 {
+    font-family: var(--serif); font-size: 19px; font-weight: 600; margin: 0 0 4px;
+    color: var(--olive-dark);
+  }
+  .page-head .subtitle { margin: 0; color: var(--muted); font-size: 12.5px; max-width: 56ch; }
+
+  /* --- Period filter --- */
+  .period-filter-wrap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .period-filter { display: inline-flex; gap: 2px; background: var(--grid); padding: 2px; border-radius: 7px; }
+  .period-filter button {
+    font-family: var(--sans); font-size: 12px; color: var(--muted);
+    background: transparent; border: none; padding: 6px 11px; border-radius: 5px;
+    cursor: pointer;
+  }
+  .period-filter button:hover { color: var(--text); }
+  .period-filter button.active { background: var(--card); color: var(--olive-dark); font-weight: 600; }
+  .period-filter button:focus-visible { outline: 2px solid var(--olive); outline-offset: 1px; }
+  .custom-range { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .custom-range[hidden] { display: none; }
+  .custom-range input[type="date"] {
+    font-family: var(--sans); font-size: 12px; color: var(--text);
+    background: var(--card); border: 1px solid var(--grid); border-radius: 5px;
+    padding: 5px 7px; accent-color: var(--olive);
+  }
+  .custom-range input[type="date"]:focus-visible { outline: 2px solid var(--olive); outline-offset: 1px; }
+
+  .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+  /* --- KPI strip --- */
+  .kpi-strip {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px;
+    background: var(--grid); border: 1px solid var(--grid); border-radius: 8px;
+    overflow: hidden; margin-bottom: 22px;
+  }
+  .kpi { background: var(--card); padding: 13px 14px 12px; display: flex; flex-direction: column; gap: 4px; }
+  .kpi .label { font-size: 10.5px; color: var(--muted); }
+  .kpi .value { font-family: var(--serif); font-size: 19px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .kpi .value.neg { color: var(--loss); }
+  .kpi .value.neutral { color: var(--olive-dark); }
+  .kpi .caption { font-size: 10.5px; color: var(--muted); }
+  .gauge { margin-top: 3px; position: relative; height: 4px; background: var(--grid); border-radius: 2px; }
+  .gauge .fill { position: absolute; inset: 0; background: var(--loss); border-radius: 2px; }
+  .gauge .tick { position: absolute; top: -2px; width: 1px; height: 8px; background: var(--text); opacity: 0.35; }
+
+  /* --- Panels --- */
+  .panel { background: var(--card); border: 1px solid var(--grid); border-radius: 8px; padding: 16px 18px 18px; margin-bottom: 18px; }
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 3px; flex-wrap: wrap; }
+  .panel-head h2 { font-family: var(--serif); font-size: 14px; font-weight: 600; margin: 0; color: var(--text); }
+  .panel-head .meta { font-size: 11px; color: var(--muted); }
+  .panel-note { font-size: 11px; color: var(--muted); margin: 2px 0 14px; max-width: 68ch; }
+
+  /* --- Equity chart --- */
+  .chart-wrap { position: relative; }
+  #equity-svg { width: 100%; height: 220px; display: block; overflow: visible; }
+  .axis-label { font-size: 10px; fill: var(--muted); font-family: var(--sans); }
+  .zero-line { stroke: var(--muted); stroke-opacity: 0.4; stroke-width: 1; stroke-dasharray: 3 3; }
+  .equity-area { fill: var(--olive-light); fill-opacity: 0.2; }
+  .equity-line { fill: none; stroke: var(--olive); stroke-width: 1.75; stroke-linecap: round; }
+  .equity-point { cursor: pointer; }
+  .equity-point circle { transition: r 0.1s ease; }
+  .equity-point:hover circle, .equity-point:focus circle { r: 4.5; }
+  .equity-point:focus { outline: none; }
+  .crosshair { stroke: var(--text); stroke-opacity: 0.22; stroke-width: 1; display: none; pointer-events: none; }
+
+  /* --- Verdict panel --- */
+  .verdict-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .verdict-card { border: 1px solid var(--grid); border-radius: 7px; padding: 14px 16px; background: var(--bg); }
+  .verdict-card .tag { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 7px; }
+  .verdict-card.has-setup .tag { color: var(--win); }
+  .verdict-card.no-setup .tag { color: var(--loss); }
+  .verdict-card .n { color: var(--muted); font-size: 11.5px; margin-bottom: 7px; }
+  .verdict-card .avg { font-family: var(--serif); font-size: 21px; font-variant-numeric: tabular-nums; margin-bottom: 9px; }
+  .verdict-card.has-setup .avg { color: var(--win); }
+  .verdict-card.no-setup .avg { color: var(--loss); }
+  .verdict-bar-track { height: 6px; background: var(--grid); border-radius: 3px; overflow: hidden; }
+  .verdict-bar-fill { height: 100%; border-radius: 3px; }
+  .verdict-card.has-setup .verdict-bar-fill { background: var(--win); }
+  .verdict-card.no-setup .verdict-bar-fill { background: var(--loss); }
+  .verdict-card .sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .takeaway { margin: 14px 2px 0; font-size: 12.5px; line-height: 1.6; color: var(--text); max-width: 78ch; }
+  .takeaway strong { color: var(--olive-dark); }
+
+  /* --- Bar list --- */
+  .bar-list { margin-top: 4px; }
+  .bar-row { display: grid; grid-template-columns: 154px 1fr 76px; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--grid); }
+  .bar-row:first-child { border-top: none; }
+  .bar-row .cat { font-size: 12px; }
+  .bar-row .cat .n { color: var(--muted); font-size: 10.5px; display: block; }
+  .bar-track { position: relative; height: 16px; background: var(--grid); border-radius: 3px; }
+  .bar-fill { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+  .bar-zero { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--text); opacity: 0.3; left: 50%; }
+  .bar-row .sum { text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .bar-row .sum.pos { color: var(--win); }
+  .bar-row .sum.neg { color: var(--loss); }
+  .bar-row:hover { background: rgba(110,122,52,0.06); }
+  .empty-note { font-size: 12px; color: var(--muted); padding: 10px 0; }
+
+  /* --- Two-column sub-panels (Process) --- */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; align-items: start; }
+  .two-col > div + div { border-left: 1px solid var(--grid); padding-left: 20px; }
+  .two-col .bar-row { grid-template-columns: 120px 1fr 66px; }
+  .sublabel { font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+
+  /* --- Mistakes donut --- */
+  .donut-wrap { display: flex; align-items: center; gap: 18px; }
+  #mistakes-donut { width: 128px; height: 128px; flex: none; overflow: visible; }
+  .donut-slice { cursor: pointer; transition: opacity 0.1s ease; }
+  .donut-slice.dim { opacity: 0.35; }
+  .donut-center-label { font-family: var(--sans); fill: var(--muted); font-size: 9px; text-anchor: middle; }
+  .donut-center-value { font-family: var(--serif); fill: var(--text); font-size: 20px; text-anchor: middle; font-variant-numeric: tabular-nums; }
+  .donut-legend { display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; flex: 1; min-width: 0; }
+  .donut-legend-row { display: flex; align-items: baseline; gap: 7px; cursor: pointer; }
+  .donut-legend-row .swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; margin-top: 2px; }
+  .donut-legend-row .lbl { color: var(--text); }
+  .donut-legend-row .pct { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; padding-left: 8px; }
+  .donut-legend-row.dim { opacity: 0.4; }
+
+  /* --- Histogram --- */
+  .hist-bar { cursor: pointer; }
+  .hist-axis-label { font-size: 9.5px; fill: var(--muted); font-family: var(--sans); }
+  .hist-zero { stroke: var(--muted); stroke-opacity: 0.4; stroke-width: 1; }
+
+  /* --- Positions table --- */
+  .table-wrap { overflow-x: auto; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 720px; }
+  thead th {
+    text-align: left; font-size: 10px; letter-spacing: 0.03em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; padding: 0 10px 7px; border-bottom: 1px solid var(--grid);
+  }
+  thead th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody td { padding: 8px 10px; border-bottom: 1px solid var(--grid); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(110,122,52,0.05); }
+  .sym { font-weight: 600; }
+  .acct-chip { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: var(--grid); color: var(--olive-dark); }
+  .flag { font-size: 10px; padding: 1px 7px; border: 1px solid var(--loss); color: var(--loss); border-radius: 8px; white-space: nowrap; }
+  .dash { color: var(--muted); }
+  .table-note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+  /* --- Tooltip --- */
+  #tooltip {
+    position: fixed; pointer-events: none; background: var(--text); color: var(--bg);
+    font-family: var(--sans); font-size: 11.5px; padding: 7px 9px; border-radius: 5px;
+    line-height: 1.45; opacity: 0; transform: translate(-50%, calc(-100% - 9px));
+    transition: opacity 0.08s ease; z-index: 20; white-space: nowrap;
+  }
+  #tooltip.show { opacity: 1; }
+  #tooltip b { font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    main { padding: 20px 16px 48px; }
+  }
+
+  @media (max-width: 560px) {
+    .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+    .kpi:last-child { grid-column: 1 / -1; }
+    .verdict-cards { grid-template-columns: 1fr; }
+    .bar-row { grid-template-columns: 110px 1fr 68px; }
+    .two-col { grid-template-columns: 1fr; gap: 4px; }
+    .two-col > div + div { border-left: none; padding-left: 0; margin-top: 10px; }
+  }
+</style>
+
+<div class="shell">
+  <aside class="sidebar">
+    <p class="brand">🫒 Journal</p>
+    <nav>
+      <a href="#">Sync check</a>
+      <a href="#">Log Trade</a>
+      <a href="#" class="current">Dashboard</a>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="page-head">
+      <div>
+        <h1>Dashboard</h1>
+        <p class="subtitle">Where does my edge actually come from — and where do my losses actually come from?</p>
+      </div>
+      <div class="period-filter-wrap">
+        <div class="period-filter" id="period-filter" role="group" aria-label="Time period"></div>
+        <div class="custom-range" id="custom-range" hidden>
+          <input type="date" id="range-from" aria-label="From date">
+          <span>–</span>
+          <input type="date" id="range-to" aria-label="To date">
+        </div>
+      </div>
+    </div>
+
+    <section class="kpi-strip" aria-label="Key metrics" id="kpi-strip"></section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Equity curve</h2>
+        <span class="meta" id="equity-meta"></span>
+      </div>
+      <p class="panel-note">Cumulative realized P&amp;L after each close, plotted by trade sequence rather than calendar date — this account sat idle for long stretches, and a true time axis would compress most of this story into a few months.</p>
+      <div class="chart-wrap">
+        <svg id="equity-svg" viewBox="0 0 1080 220" preserveAspectRatio="none" role="img" aria-label="Equity curve"></svg>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>R-multiple distribution</h2>
+        <span class="meta" id="rhist-meta"></span>
+      </div>
+      <p class="panel-note">Outcome sized against the plan, not the ticker — each closed trade's realized P&amp;L divided by its own 1R.</p>
+      <div class="chart-wrap">
+        <svg id="rhist-svg" viewBox="0 0 1080 180" preserveAspectRatio="none" role="img" aria-label="R-multiple histogram"></svg>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Setup vs. tip</h2>
+        <span class="meta">avg realized P&amp;L per closed trade</span>
+      </div>
+      <div class="verdict-cards" id="verdict-cards"></div>
+      <p class="takeaway" id="takeaway"></p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Total P&amp;L by entry reason</h2>
+        <span class="meta">exploded — a trade can carry more than one reason</span>
+      </div>
+      <div id="reasons-chart" class="bar-list"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Process</h2>
+        <span class="meta" id="process-meta"></span>
+      </div>
+      <div class="two-col">
+        <div>
+          <p class="sublabel">Mistakes logged</p>
+          <div class="donut-wrap">
+            <svg id="mistakes-donut" viewBox="0 0 180 180" role="img" aria-label="Mistakes, by share of trades"></svg>
+            <div id="mistakes-legend" class="donut-legend"></div>
+          </div>
+        </div>
+        <div>
+          <p class="sublabel">Exit reason</p>
+          <div id="exit-chart" class="bar-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Open positions</h2>
+        <span class="meta">13 open</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Trade</th><th>Symbol</th><th>Account</th><th>Opened</th>
+              <th class="num">Avg cost</th><th class="num">Shares</th>
+              <th class="num">Stop</th><th class="num">Target</th><th class="num">Planned 1R</th>
+              <th>Plan</th>
+            </tr>
+          </thead>
+          <tbody id="positions-body"></tbody>
+        </table>
+      </div>
+      <p class="table-note">Current holdings — not affected by the period filter above. T001 predates the plan gate: opened Feb 2018, no stop, target, or 1R on record.</p>
+    </section>
+  </main>
+</div>
+
+<div id="tooltip" role="tooltip"></div>
+
+<script>
+(function () {
+  // ---------------- Data ----------------
+  const TRADES = [{"id": "T002", "date": "2022-09-16", "pnl": 14583.63, "ctx": ["Good news", "No plan / impulse"], "setup": false, "mistakes": [], "exit": "Bailed early (fear)", "rmult": null, "holding": 150}, {"id": "T006", "date": "2022-09-16", "pnl": -933.78, "ctx": ["No plan / impulse"], "setup": false, "mistakes": [], "exit": "Bailed early (fear)", "rmult": -1.14, "holding": 1}, {"id": "T003", "date": "2022-10-03", "pnl": 118.77, "ctx": ["Guru's advice"], "setup": false, "mistakes": ["Held winner too long"], "exit": "Hit stop", "rmult": 0.18, "holding": 31}, {"id": "T008", "date": "2022-10-07", "pnl": -243.39, "ctx": ["Guru's advice"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -0.15, "holding": 2}, {"id": "T007", "date": "2023-04-26", "pnl": -2441.61, "ctx": ["Guru's advice", "Bad news"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -8.27, "holding": 219}, {"id": "T010", "date": "2023-04-27", "pnl": -4668.52, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -4.89, "holding": 70}, {"id": "T011", "date": "2023-09-13", "pnl": 15.21, "ctx": ["Guru's advice"], "setup": false, "mistakes": ["Held winner too long"], "exit": "News-driven exit", "rmult": 0.03, "holding": 56}, {"id": "T012", "date": "2023-11-01", "pnl": -714.25, "ctx": ["Buy the dip"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -1.57, "holding": 91}, {"id": "T014", "date": "2024-05-24", "pnl": -1251.54, "ctx": ["Buy the dip"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -4.16, "holding": 22}, {"id": "T015", "date": "2024-07-18", "pnl": -501.16, "ctx": ["No plan / impulse"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -1.61, "holding": 8}, {"id": "T016", "date": "2024-11-21", "pnl": 410.47, "ctx": [], "setup": true, "mistakes": ["Held winner too long"], "exit": "Trailing stop", "rmult": 0.23, "holding": 97}, {"id": "T017", "date": "2025-01-14", "pnl": -416.35, "ctx": ["Buy the dip"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -1.02, "holding": 63}, {"id": "T018", "date": "2025-01-14", "pnl": -494.59, "ctx": ["Buy the dip", "Average down (add to loser)"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -0.98, "holding": 1}, {"id": "T019", "date": "2025-01-16", "pnl": -211.76, "ctx": ["No plan / impulse"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -1.03, "holding": 1}, {"id": "T020", "date": "2025-02-07", "pnl": -1609.64, "ctx": ["Buy the dip", "Guru's advice"], "setup": false, "mistakes": ["Ignored plan", "Held loser past stop"], "exit": "Hit stop", "rmult": -6.52, "holding": 22}, {"id": "T021", "date": "2025-02-07", "pnl": -1016.49, "ctx": ["Buy the dip"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -1.01, "holding": 1}, {"id": "T022", "date": "2025-02-26", "pnl": -1116.13, "ctx": ["Buy the dip"], "setup": false, "mistakes": ["Ignored plan"], "exit": "Hit stop", "rmult": -3.62, "holding": 0}, {"id": "T024", "date": "2025-04-03", "pnl": -415.34, "ctx": ["Buy the dip"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -1.02, "holding": 16}, {"id": "T023", "date": "2026-02-10", "pnl": 691.15, "ctx": ["Buy the dip"], "setup": false, "mistakes": [], "exit": "Partial / scale-out", "rmult": 1.14, "holding": 347}, {"id": "T025", "date": "2026-02-25", "pnl": -2255.76, "ctx": ["Buy the dip"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -3.0, "holding": 29}, {"id": "T030", "date": "2026-03-02", "pnl": -1703.85, "ctx": ["Bad news"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -2.09, "holding": 0}, {"id": "T029", "date": "2026-03-02", "pnl": -768.77, "ctx": ["Bad news"], "setup": false, "mistakes": ["Chased entry"], "exit": null, "rmult": -1.67, "holding": 0}, {"id": "T026", "date": "2026-03-10", "pnl": 2704.2, "ctx": [], "setup": true, "mistakes": ["Cut winner early"], "exit": "Partial / scale-out", "rmult": 4.5, "holding": 19}, {"id": "T034", "date": "2026-03-20", "pnl": -1223.12, "ctx": ["Bad news"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -2.97, "holding": 14}, {"id": "T035", "date": "2026-03-20", "pnl": -629.35, "ctx": [], "setup": true, "mistakes": ["Ignored plan"], "exit": "Hit stop", "rmult": -1.02, "holding": 9}, {"id": "T036", "date": "2026-03-25", "pnl": 373.11, "ctx": ["Buy the dip"], "setup": false, "mistakes": ["Cut winner early"], "exit": "Partial / scale-out", "rmult": 1.19, "holding": 1}, {"id": "T037", "date": "2026-03-26", "pnl": -899.46, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -1.53, "holding": 0}, {"id": "T027", "date": "2026-03-26", "pnl": -4379.5, "ctx": ["Bad news"], "setup": false, "mistakes": ["Ignored plan"], "exit": null, "rmult": -10.53, "holding": 24}, {"id": "T038", "date": "2026-04-10", "pnl": 471.06, "ctx": ["Average down (add to loser)"], "setup": true, "mistakes": ["Chased entry"], "exit": null, "rmult": 0.39, "holding": 3}, {"id": "T040", "date": "2026-05-13", "pnl": -832.14, "ctx": ["Buy the dip"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -1.02, "holding": 1}, {"id": "T039", "date": "2026-05-20", "pnl": -545.96, "ctx": ["No plan / impulse"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -1.04, "holding": 15}, {"id": "T041", "date": "2026-05-27", "pnl": -326.6, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -0.32, "holding": 14}, {"id": "T048", "date": "2026-05-27", "pnl": -905.19, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -2.99, "holding": 0}, {"id": "T049", "date": "2026-05-28", "pnl": -327.78, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -1.53, "holding": 1}, {"id": "T047", "date": "2026-05-28", "pnl": -2776.97, "ctx": ["Guru's advice"], "setup": false, "mistakes": ["Held loser past stop"], "exit": "Hit stop", "rmult": -3.67, "holding": 1}, {"id": "T043", "date": "2026-05-29", "pnl": -650.77, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -2.08, "holding": 10}, {"id": "T044", "date": "2026-05-29", "pnl": 3965.44, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Trailing stop", "rmult": 6.44, "holding": 7}, {"id": "T033", "date": "2026-05-29", "pnl": 4524.21, "ctx": ["Bad news"], "setup": false, "mistakes": ["Cut winner early"], "exit": "Trailing stop", "rmult": 8.95, "holding": 84}, {"id": "T050", "date": "2026-06-05", "pnl": -72.38, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -0.12, "holding": 0}, {"id": "T053", "date": "2026-06-08", "pnl": -507.91, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -1.36, "holding": 0}, {"id": "T052", "date": "2026-06-09", "pnl": -427.03, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -0.26, "holding": 1}, {"id": "T051", "date": "2026-06-09", "pnl": -543.55, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -1.29, "holding": 1}, {"id": "T054", "date": "2026-06-09", "pnl": -539.24, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -0.53, "holding": 0}, {"id": "T055", "date": "2026-06-18", "pnl": -247.87, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -0.17, "holding": 0}, {"id": "T046", "date": "2026-06-18", "pnl": -931.46, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -1.83, "holding": 24}, {"id": "T059", "date": "2026-07-21", "pnl": -219.72, "ctx": ["Guru's advice"], "setup": false, "mistakes": [], "exit": "Hit stop", "rmult": -0.71, "holding": 0}];
+
+  const AS_OF = "2026-07-26";
+  const DATA_MIN = TRADES[0].date, DATA_MAX = TRADES[TRADES.length - 1].date;
+  const PRESETS = [
+    { key: "all", label: "All time", from: null, to: null },
+    { key: "thisyear", label: "This year", from: "2026-01-01", to: null },
+    { key: "90d", label: "Last 90 days", from: "2026-04-27", to: null },
+  ];
+  let currentKey = "all";
+  let customFrom = DATA_MIN;
+  let customTo = DATA_MAX;
+
+  const sum = arr => arr.reduce((a, b) => a + b, 0);
+  const fmt = (n, sign) => {
+    const abs = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (n < 0 ? '−' : (sign ? '+' : '')) + abs;
+  };
+  const fmtShort = n => (n < 0 ? '−' : '') + Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const fmtDate = iso => { const d = new Date(iso + "T00:00:00"); return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); };
+
+  const tooltip = document.getElementById('tooltip');
+  function showTip(x, y, html) {
+    tooltip.innerHTML = html; tooltip.style.left = x + 'px'; tooltip.style.top = y + 'px';
+    tooltip.classList.add('show');
+  }
+  function hideTip() { tooltip.classList.remove('show'); }
+
+  // ---------------- Period filter UI ----------------
+  const filterEl = document.getElementById('period-filter');
+  const customRangeEl = document.getElementById('custom-range');
+  const rangeFromInput = document.getElementById('range-from');
+  const rangeToInput = document.getElementById('range-to');
+  rangeFromInput.min = rangeToInput.min = DATA_MIN;
+  rangeFromInput.max = rangeToInput.max = DATA_MAX;
+  rangeFromInput.value = customFrom;
+  rangeToInput.value = customTo;
+
+  function setActiveButton(key) {
+    [...filterEl.children].forEach(b => b.classList.toggle('active', b.dataset.key === key));
+  }
+
+  PRESETS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.textContent = p.label;
+    btn.dataset.key = p.key;
+    btn.className = p.key === currentKey ? 'active' : '';
+    btn.addEventListener('click', () => {
+      currentKey = p.key;
+      customRangeEl.hidden = true;
+      setActiveButton(p.key);
+      render();
+    });
+    filterEl.appendChild(btn);
+  });
+
+  const customBtn = document.createElement('button');
+  customBtn.textContent = 'Custom range';
+  customBtn.dataset.key = 'custom';
+  customBtn.addEventListener('click', () => {
+    currentKey = 'custom';
+    customRangeEl.hidden = false;
+    setActiveButton('custom');
+    render();
+  });
+  filterEl.appendChild(customBtn);
+
+  rangeFromInput.addEventListener('change', () => {
+    customFrom = rangeFromInput.value || DATA_MIN;
+    if (currentKey === 'custom') render();
+  });
+  rangeToInput.addEventListener('change', () => {
+    customTo = rangeToInput.value || DATA_MAX;
+    if (currentKey === 'custom') render();
+  });
+
+  function currentRange() {
+    if (currentKey === 'custom') return { from: customFrom, to: customTo };
+    const p = PRESETS.find(p => p.key === currentKey);
+    return { from: p.from, to: p.to };
+  }
+
+  // ---------------- Compute for a date range ----------------
+  function computeForRange({ from, to }) {
+    const filtered = TRADES.filter(t => (!from || t.date >= from) && (!to || t.date <= to));
+    const wins = filtered.filter(t => t.pnl >= 0);
+    const losses = filtered.filter(t => t.pnl < 0);
+    const winRate = filtered.length ? wins.length / filtered.length : 0;
+    const grossProfit = sum(wins.map(t => t.pnl));
+    const grossLoss = sum(losses.map(t => t.pnl));
+    const pf = grossLoss !== 0 ? grossProfit / Math.abs(grossLoss) : null;
+    const totalPnl = sum(filtered.map(t => t.pnl));
+    const expectancy = filtered.length ? totalPnl / filtered.length : 0;
+    const avgWin = wins.length ? grossProfit / wins.length : 0;
+    const avgLoss = losses.length ? grossLoss / losses.length : 0;
+    const breakevenWr = (avgWin - avgLoss) !== 0 ? Math.abs(avgLoss) / (avgWin + Math.abs(avgLoss)) : 0.5;
+
+    let cum = 0;
+    const curve = filtered.map(t => { cum += t.pnl; return { ...t, cum }; });
+
+    const hasSetup = filtered.filter(t => t.setup);
+    const noSetup = filtered.filter(t => !t.setup);
+    const hasSetupAvg = hasSetup.length ? sum(hasSetup.map(t => t.pnl)) / hasSetup.length : 0;
+    const noSetupAvg = noSetup.length ? sum(noSetup.map(t => t.pnl)) / noSetup.length : 0;
+
+    const reasonMap = {};
+    filtered.forEach(t => t.ctx.forEach(c => {
+      reasonMap[c] = reasonMap[c] || { sum: 0, n: 0 };
+      reasonMap[c].sum += t.pnl; reasonMap[c].n++;
+    }));
+    const reasons = Object.entries(reasonMap)
+      .map(([label, v]) => ({ label, sum: v.sum, n: v.n }))
+      .sort((a, b) => a.sum - b.sum);
+
+    const groupBy = (getKeys) => {
+      const map = {};
+      filtered.forEach(t => getKeys(t).forEach(k => {
+        map[k] = map[k] || { sum: 0, n: 0 };
+        map[k].sum += t.pnl; map[k].n++;
+      }));
+      return Object.entries(map)
+        .map(([label, v]) => ({ label, sum: v.sum, n: v.n }))
+        .sort((a, b) => a.sum - b.sum);
+    };
+    const mistakeBars = groupBy(t => t.mistakes);
+    const exitBars = groupBy(t => t.exit ? [t.exit] : []);
+    const mistakeTradeCount = filtered.filter(t => t.mistakes && t.mistakes.length > 0).length;
+
+    const rVals = filtered.map(t => t.rmult).filter(v => v !== null && v !== undefined);
+    let rHist = [];
+    if (rVals.length) {
+      const lo = Math.floor(Math.min(...rVals));
+      const hi = Math.ceil(Math.max(...rVals) + 0.0001);
+      for (let b = lo; b < hi; b++) {
+        rHist.push({ bin: b, count: rVals.filter(v => v >= b && v < b + 1).length });
+      }
+    }
+
+    const holdings = filtered.map(t => t.holding).filter(v => v !== null && v !== undefined);
+    const avgHolding = holdings.length ? sum(holdings) / holdings.length : null;
+    const sortedHoldings = [...holdings].sort((a, b) => a - b);
+    const medianHolding = sortedHoldings.length
+      ? sortedHoldings[Math.floor((sortedHoldings.length - 1) / 2)]
+      : null;
+
+    return {
+      filtered, winRate, pf, totalPnl, expectancy, avgWin, avgLoss, breakevenWr, curve,
+      hasSetup, noSetup, hasSetupAvg, noSetupAvg, reasons,
+      mistakeBars, exitBars, mistakeTradeCount, rVals, rHist, avgHolding, medianHolding,
+    };
+  }
+
+  // ---------------- Render: KPI strip ----------------
+  const kpiStrip = document.getElementById('kpi-strip');
+  function renderKpis(d) {
+    const pfText = d.pf === null ? '—' : d.pf.toFixed(2);
+    const pfGaugeWidth = d.pf === null ? 0 : Math.min(100, (d.pf / 2) * 100);
+    kpiStrip.innerHTML = `
+      <div class="kpi">
+        <div class="label">Win rate</div>
+        <div class="value ${d.winRate < d.breakevenWr ? 'neg' : 'neutral'}">${(d.winRate * 100).toFixed(1)}%</div>
+        <div class="caption">${d.filtered.length - d.filtered.filter(t=>t.pnl<0).length}W · ${d.filtered.filter(t=>t.pnl<0).length}L</div>
+        <div class="gauge"><div class="fill" style="width:${(d.winRate*100).toFixed(1)}%"></div><div class="tick" style="left:${(d.breakevenWr*100).toFixed(1)}%"></div></div>
+      </div>
+      <div class="kpi">
+        <div class="label">Profit factor</div>
+        <div class="value ${d.pf !== null && d.pf < 1 ? 'neg' : 'neutral'}">${pfText}</div>
+        <div class="caption">gross profit ÷ gross loss</div>
+        <div class="gauge"><div class="fill" style="width:${pfGaugeWidth}%"></div><div class="tick" style="left:50%"></div></div>
+      </div>
+      <div class="kpi">
+        <div class="label">Realized P&amp;L</div>
+        <div class="value ${d.totalPnl < 0 ? 'neg' : 'neutral'}">${fmt(d.totalPnl, true)}</div>
+        <div class="caption">${d.filtered.length} closed trades</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Expectancy / trade</div>
+        <div class="value ${d.expectancy < 0 ? 'neg' : 'neutral'}">${fmt(d.expectancy, true)}</div>
+        <div class="caption">avg win ${fmt(d.avgWin)} · avg loss ${fmt(d.avgLoss)}</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Open positions</div>
+        <div class="value neutral">${positions.length}</div>
+        <div class="caption">unrealized — not counted above</div>
+      </div>
+    `;
+  }
+
+  // ---------------- Render: Equity curve ----------------
+  const svg = document.getElementById('equity-svg');
+  const NS = 'http://www.w3.org/2000/svg';
+  const W = 1080, H = 220, padL = 8, padR = 8, padT = 14, padB = 22;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  function el(tag, attrs) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function renderEquity(d) {
+    svg.innerHTML = '';
+    document.getElementById('equity-meta').textContent =
+      `${d.curve.length} closed trades, in order · ${d.curve.length ? fmtDate(d.curve[0].date) + ' → ' + fmtDate(d.curve[d.curve.length-1].date) : '—'}`;
+
+    if (d.curve.length < 2) {
+      const note = el('text', { x: W/2, y: H/2, class: 'axis-label', 'text-anchor': 'middle' });
+      note.textContent = 'Not enough closed trades in this period.';
+      svg.appendChild(note);
+      return;
+    }
+
+    const cumVals = d.curve.map(t => t.cum);
+    const yMin = Math.min(0, ...cumVals), yMax = Math.max(0, ...cumVals);
+    const yPad = (yMax - yMin) * 0.12 || 100;
+    const yLo = yMin - yPad, yHi = yMax + yPad;
+    const xAt = i => padL + (plotW * i) / (d.curve.length - 1);
+    const yAt = v => padT + plotH - ((v - yLo) / (yHi - yLo)) * plotH;
+
+    const y0 = yAt(0);
+    svg.appendChild(el('line', { x1: padL, x2: W - padR, y1: y0, y2: y0, class: 'zero-line' }));
+    const zeroLabel = el('text', { x: W - padR, y: y0 - 5, class: 'axis-label', 'text-anchor': 'end' });
+    zeroLabel.textContent = '0';
+    svg.appendChild(zeroLabel);
+
+    let areaD = `M ${xAt(0)} ${y0}`;
+    d.curve.forEach((t, i) => { areaD += ` L ${xAt(i)} ${yAt(t.cum)}`; });
+    areaD += ` L ${xAt(d.curve.length - 1)} ${y0} Z`;
+    svg.appendChild(el('path', { d: areaD, class: 'equity-area' }));
+
+    const lineD = d.curve.map((t, i) => (i === 0 ? 'M' : 'L') + ` ${xAt(i)} ${yAt(t.cum)}`).join(' ');
+    svg.appendChild(el('path', { d: lineD, class: 'equity-line' }));
+
+    const crosshair = el('line', { class: 'crosshair', y1: padT, y2: H - padB, x1: 0, x2: 0 });
+    svg.appendChild(crosshair);
+
+    d.curve.forEach((t, i) => {
+      const cx = xAt(i), cy = yAt(t.cum);
+      const isEnd = i === d.curve.length - 1;
+      const g = el('g', { class: 'equity-point', tabindex: '0', role: 'img',
+        'aria-label': `${t.id}, ${t.date}, this trade ${fmt(t.pnl, true)}, running total ${fmt(t.cum, true)}` });
+      g.appendChild(el('circle', { cx, cy, r: isEnd ? 3.5 : 2.25, fill: isEnd ? 'var(--olive-dark)' : 'var(--olive)' }));
+      svg.appendChild(g);
+
+      function onEnter() {
+        crosshair.setAttribute('x1', cx); crosshair.setAttribute('x2', cx);
+        crosshair.style.display = 'block';
+        const rect = svg.getBoundingClientRect();
+        const px = rect.left + (cx / W) * rect.width;
+        const py = rect.top + (cy / H) * rect.height;
+        showTip(px, py, `<b>${t.id}</b> · ${t.date}<br>this trade: <b>${fmt(t.pnl, true)}</b><br>running total: <b>${fmt(t.cum, true)}</b>`);
+      }
+      function onLeave() { crosshair.style.display = 'none'; hideTip(); }
+      g.addEventListener('mouseenter', onEnter);
+      g.addEventListener('mouseleave', onLeave);
+      g.addEventListener('focus', onEnter);
+      g.addEventListener('blur', onLeave);
+    });
+  }
+
+  // ---------------- Render: Verdict cards ----------------
+  function renderVerdict(d) {
+    const maxAbs = Math.max(Math.abs(d.hasSetupAvg), Math.abs(d.noSetupAvg)) || 1;
+    document.getElementById('verdict-cards').innerHTML = `
+      <div class="verdict-card has-setup">
+        <div class="tag">Has a real setup</div>
+        <div class="n">Breakout or red-to-green · ${d.hasSetup.length} of ${d.filtered.length} closed trades</div>
+        <div class="avg">${fmt(d.hasSetupAvg, true)}</div>
+        <div class="verdict-bar-track"><div class="verdict-bar-fill" style="width:${(Math.abs(d.hasSetupAvg)/maxAbs*100).toFixed(0)}%"></div></div>
+        <div class="sub">sum ${fmt(sum(d.hasSetup.map(t=>t.pnl)), true)}</div>
+      </div>
+      <div class="verdict-card no-setup">
+        <div class="tag">No setup — just a tip</div>
+        <div class="n">Setup left blank · ${d.noSetup.length} of ${d.filtered.length} closed trades</div>
+        <div class="avg">${fmt(d.noSetupAvg, true)}</div>
+        <div class="verdict-bar-track"><div class="verdict-bar-fill" style="width:${(Math.abs(d.noSetupAvg)/maxAbs*100).toFixed(0)}%"></div></div>
+        <div class="sub">sum ${fmt(sum(d.noSetup.map(t=>t.pnl)), true)}</div>
+      </div>
+    `;
+    const takeaway = document.getElementById('takeaway');
+    if (!d.hasSetup.length || !d.noSetup.length) {
+      takeaway.textContent = 'Not enough trades of both kinds in this period to compare.';
+    } else {
+      takeaway.innerHTML = `Real technical setups are rare — <strong>${d.hasSetup.length} of ${d.filtered.length}</strong> closed trades — and they ${d.hasSetupAvg >= 0 ? "average a gain" : "still average a loss"}. The other <strong>${d.noSetup.length}</strong>, with no chart pattern on record, ${d.noSetupAvg >= 0 ? "average a gain" : "average a loss"}.`;
+    }
+  }
+
+  // ---------------- Render: generic sum-by-category bar list ----------------
+  function renderBarList(containerEl, bars, emptyText) {
+    containerEl.innerHTML = '';
+    if (!bars.length) {
+      containerEl.innerHTML = `<div class="empty-note">${emptyText}</div>`;
+      return;
+    }
+    const maxAbs = Math.max(...bars.map(r => Math.abs(r.sum)));
+    bars.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      row.tabIndex = 0;
+      const pct = (Math.abs(r.sum) / maxAbs) * 50;
+      row.innerHTML = `
+        <div class="cat">${r.label}<span class="n">n = ${r.n}</span></div>
+        <div class="bar-track">
+          <div class="bar-zero"></div>
+          <div class="bar-fill" style="background:${r.sum>=0?'var(--win)':'var(--loss)'}; ${r.sum>=0?'left':'right'}:50%; width:${pct}%"></div>
+        </div>
+        <div class="sum ${r.sum>=0?'pos':'neg'}">${fmtShort(r.sum)}</div>
+      `;
+      function onEnter() {
+        const rect = row.getBoundingClientRect();
+        showTip(rect.left + rect.width/2, rect.top, `<b>${r.label}</b><br>${r.n} trade${r.n>1?'s':''} · sum ${fmt(r.sum, true)}<br>avg ${fmt(r.sum/r.n, true)}`);
+      }
+      row.addEventListener('mouseenter', onEnter);
+      row.addEventListener('mouseleave', hideTip);
+      row.addEventListener('focus', onEnter);
+      row.addEventListener('blur', hideTip);
+      containerEl.appendChild(row);
+    });
+  }
+
+  const reasonsEl = document.getElementById('reasons-chart');
+  const exitEl = document.getElementById('exit-chart');
+  function renderReasons(d) { renderBarList(reasonsEl, d.reasons, 'No closed trades in this period.'); }
+
+  // ---------------- Render: Mistakes donut (fixed category -> colour, never repainted by a filter) ----------------
+  const MISTAKE_COLOR = {
+    'Held loser past stop': 'var(--olive)',
+    'Ignored plan': '#B08D57',
+    'Held winner too long': '#4C7A88',
+    'Cut winner early': '#8C6A9E',
+    'Chased entry': 'var(--olive-light)',
+  };
+  const MISTAKE_FALLBACK = 'var(--muted)';
+
+  function polar(cx, cy, r, angle) {
+    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  }
+  function donutSlicePath(cx, cy, rOuter, rInner, a0, a1) {
+    const o0 = polar(cx, cy, rOuter, a0), o1 = polar(cx, cy, rOuter, a1);
+    const i1 = polar(cx, cy, rInner, a1), i0 = polar(cx, cy, rInner, a0);
+    const large = (a1 - a0) > Math.PI ? 1 : 0;
+    return [
+      `M ${o0.x} ${o0.y}`, `A ${rOuter} ${rOuter} 0 ${large} 1 ${o1.x} ${o1.y}`,
+      `L ${i1.x} ${i1.y}`, `A ${rInner} ${rInner} 0 ${large} 0 ${i0.x} ${i0.y}`, 'Z',
+    ].join(' ');
+  }
+
+  const donutSvg = document.getElementById('mistakes-donut');
+  const donutLegend = document.getElementById('mistakes-legend');
+  function renderMistakesDonut(d) {
+    donutSvg.innerHTML = '';
+    donutLegend.innerHTML = '';
+    const bars = d.mistakeBars;
+    if (!bars.length) {
+      donutLegend.innerHTML = '<div class="empty-note">No mistakes logged in this period.</div>';
+      return;
+    }
+    const slices = [...bars].sort((a, b) => b.n - a.n);
+    const total = sum(slices.map(s => s.n));
+    const cx = 90, cy = 90, rOuter = 78, rInner = 46;
+    let angle = -Math.PI / 2;
+
+    donutSvg.appendChild(el('text', { x: cx, y: cy - 4, class: 'donut-center-value' })).textContent = d.mistakeTradeCount;
+    donutSvg.appendChild(el('text', { x: cx, y: cy + 12, class: 'donut-center-label' })).textContent = `of ${d.filtered.length} trades`;
+
+    slices.forEach(s => {
+      const frac = s.n / total;
+      const a0 = angle, a1 = angle + frac * Math.PI * 2;
+      angle = a1;
+      const color = MISTAKE_COLOR[s.label] || MISTAKE_FALLBACK;
+      const path = el('path', {
+        d: donutSlicePath(cx, cy, rOuter, rInner, a0, a1),
+        class: 'donut-slice', fill: color, stroke: 'var(--card)', 'stroke-width': 2,
+        tabindex: '0', role: 'img',
+        'aria-label': `${s.label}: ${s.n} of ${total} mistake tags, sum ${fmt(s.sum, true)}`,
+      });
+      donutSvg.appendChild(path);
+
+      const row = document.createElement('div');
+      row.className = 'donut-legend-row';
+      row.tabIndex = 0;
+      row.innerHTML = `
+        <span class="swatch" style="background:${color}"></span>
+        <span class="lbl">${s.label}<span class="n"> · n=${s.n}</span></span>
+        <span class="pct">${(frac * 100).toFixed(0)}%</span>
+      `;
+      donutLegend.appendChild(row);
+
+      function highlight(on) {
+        [...donutSvg.querySelectorAll('.donut-slice')].forEach(p => p.classList.toggle('dim', on && p !== path));
+        [...donutLegend.querySelectorAll('.donut-legend-row')].forEach(r => r.classList.toggle('dim', on && r !== row));
+      }
+      function onEnter(evt) {
+        highlight(true);
+        const rect = (evt.currentTarget === path ? path : row).getBoundingClientRect();
+        showTip(rect.left + rect.width / 2, rect.top, `<b>${s.label}</b><br>${s.n} of ${total} tags · ${(frac*100).toFixed(0)}%<br>sum ${fmt(s.sum, true)} · avg ${fmt(s.sum/s.n, true)}`);
+      }
+      function onLeave() { highlight(false); hideTip(); }
+      path.addEventListener('mouseenter', onEnter);
+      path.addEventListener('mouseleave', onLeave);
+      path.addEventListener('focus', onEnter);
+      path.addEventListener('blur', onLeave);
+      row.addEventListener('mouseenter', onEnter);
+      row.addEventListener('mouseleave', onLeave);
+      row.addEventListener('focus', onEnter);
+      row.addEventListener('blur', onLeave);
+    });
+  }
+
+  function renderProcess(d) {
+    renderMistakesDonut(d);
+    renderBarList(exitEl, d.exitBars, 'No exit reason on record for this period.');
+    const holdText = d.avgHolding === null ? '—'
+      : `avg ${d.avgHolding.toFixed(0)}d · median ${d.medianHolding}d`;
+    document.getElementById('process-meta').textContent = `holding period: ${holdText}`;
+  }
+
+  // ---------------- Render: R-multiple histogram ----------------
+  const rhistSvg = document.getElementById('rhist-svg');
+  const RH_W = 1080, RH_H = 180, RH_padL = 8, RH_padR = 8, RH_padT = 10, RH_padB = 24;
+  function renderRHistogram(d) {
+    rhistSvg.innerHTML = '';
+    document.getElementById('rhist-meta').textContent = `${d.rVals.length} of ${d.filtered.length} closed trades have a 1R on record`;
+    if (!d.rHist.length) {
+      const note = el('text', { x: RH_W/2, y: RH_H/2, class: 'axis-label', 'text-anchor': 'middle' });
+      note.textContent = 'No R-multiples in this period.';
+      rhistSvg.appendChild(note);
+      return;
+    }
+    const plotW = RH_W - RH_padL - RH_padR, plotH = RH_H - RH_padT - RH_padB;
+    const n = d.rHist.length;
+    const maxCount = Math.max(...d.rHist.map(b => b.count), 1);
+    const gap = 2;
+    const barW = plotW / n;
+    const xAt = i => RH_padL + i * barW;
+    const yAt = c => RH_padT + plotH - (c / maxCount) * plotH;
+
+    const y0 = RH_padT + plotH;
+    d.rHist.forEach((b, i) => {
+      const barH = plotH - (yAt(b.count) - RH_padT);
+      const g = el('g', { class: 'hist-bar', tabindex: '0', role: 'img',
+        'aria-label': `${b.bin}R to ${b.bin+1}R: ${b.count} trade${b.count===1?'':'s'}` });
+      const rect = el('rect', {
+        x: xAt(i) + gap/2, y: yAt(b.count), width: Math.max(0, barW - gap), height: barH,
+        rx: 2, fill: b.bin >= 0 ? 'var(--win)' : 'var(--loss)',
+      });
+      g.appendChild(rect);
+      rhistSvg.appendChild(g);
+      if (b.bin % 2 === 0) {
+        const lbl = el('text', { x: xAt(i) + barW/2, y: RH_H - 6, class: 'hist-axis-label', 'text-anchor': 'middle' });
+        lbl.textContent = b.bin;
+        rhistSvg.appendChild(lbl);
+      }
+      function onEnter() {
+        const rect2 = rhistSvg.getBoundingClientRect();
+        const px = rect2.left + ((xAt(i) + barW/2) / RH_W) * rect2.width;
+        const py = rect2.top + (yAt(b.count) / RH_H) * rect2.height;
+        showTip(px, py, `<b>${b.bin}R to ${b.bin+1}R</b><br>${b.count} trade${b.count===1?'':'s'}`);
+      }
+      g.addEventListener('mouseenter', onEnter);
+      g.addEventListener('mouseleave', hideTip);
+      g.addEventListener('focus', onEnter);
+      g.addEventListener('blur', hideTip);
+    });
+
+    if (d.rHist[0].bin < 0 && d.rHist[d.rHist.length-1].bin + 1 > 0) {
+      const zeroI = d.rHist.findIndex(b => b.bin === 0);
+      if (zeroI >= 0) {
+        const zx = xAt(zeroI);
+        rhistSvg.appendChild(el('line', { x1: zx, x2: zx, y1: RH_padT, y2: y0, class: 'hist-zero' }));
+      }
+    }
+  }
+
+  // ---------------- Render: open positions (static, period-independent) ----------------
+  const positions = [
+    ["T001","EPG","KS","2018-02-09",8.2775,4000,null,null,null],
+    ["T004","MFEC","KS","2022-09-07",10.0698,3000,8.80,12.20,653.94],
+    ["T005","HUMAN","KS","2022-09-08",11.9217,8000,11.70,13.90,1455.36],
+    ["T009","DOHOME","KS","2023-01-23",14.0726,4200,13.40,17.00,1455.01],
+    ["T013","ADVANC","LIB","2024-04-22",197.5149,100,193.50,212.00,401.49],
+    ["T028","ERW","LIB","2026-03-02",2.7491,62000,2.98,5.85,245.59],
+    ["T031","VGI","LIB","2026-03-02",0.9606,100000,1.02,1.36,1813.51],
+    ["T032","WHA","LIB","2026-03-05",4.0024,5000,3.90,4.58,512.00],
+    ["T042","JMART","LIB","2026-05-18",8.6052,5000,8.30,10.80,355.27],
+    ["T045","SUPER","LIB","2026-05-22",0.1201,200000,0.11,0.14,2014.54],
+    ["T056","FORTH","LIB","2026-06-19",14.9424,3000,14.50,17.00,509.13],
+    ["T057","BGRIM","LIB","2026-06-23",17.0103,1000,16.50,19.00,510.35],
+    ["T058","IRPC","LIB","2026-07-08",1.9112,10000,1.85,2.10,305.82]
+  ];
+  const tbody = document.getElementById('positions-body');
+  const money = n => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  positions.forEach(([tid, sym, acct, opened, avgCost, shares, stop, target, r1]) => {
+    const tr = document.createElement('tr');
+    const hasPlan = stop !== null;
+    tr.innerHTML = `
+      <td>${tid}</td>
+      <td class="sym">${sym}</td>
+      <td><span class="acct-chip">${acct}</span></td>
+      <td>${opened}</td>
+      <td class="num">${money(avgCost)}</td>
+      <td class="num">${shares.toLocaleString('en-US')}</td>
+      <td class="num">${hasPlan ? money(stop) : '<span class="dash">—</span>'}</td>
+      <td class="num">${hasPlan ? money(target) : '<span class="dash">—</span>'}</td>
+      <td class="num">${hasPlan ? money(r1) : '<span class="dash">—</span>'}</td>
+      <td>${hasPlan ? '' : '<span class="flag">No plan on file</span>'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // ---------------- Master render ----------------
+  function render() {
+    const d = computeForRange(currentRange());
+    renderKpis(d);
+    renderEquity(d);
+    renderRHistogram(d);
+    renderVerdict(d);
+    renderReasons(d);
+    renderProcess(d);
+  }
+  render();
+})();
+</script>

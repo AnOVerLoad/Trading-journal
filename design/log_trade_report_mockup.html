@@ -1,0 +1,517 @@
+<title>Trading Journal — Log Trade &amp; Report</title>
+<style>
+  :root {
+    --olive: #6E7A34;
+    --olive-dark: #525C27;
+    --olive-light: #A9B36B;
+    --win: #4F7A5E;
+    --loss: #A8574A;
+    --warn-bg: #EFE9D6;
+    --warn-text: #6B5A27;
+    --bg: #FAF8F2;
+    --card: #F1EFE6;
+    --text: #2B2B26;
+    --muted: #6B6B60;
+    --grid: #E4E1D5;
+    --serif: Iowan Old Style, Georgia, ui-serif, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13.5px; line-height: 1.5; }
+
+  .shell { display: grid; grid-template-columns: 152px minmax(0, 1fr); min-height: 100vh; }
+  .sidebar { border-right: 1px solid var(--grid); padding: 22px 14px; }
+  .sidebar .brand { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px 4px; }
+  .sidebar nav { display: flex; flex-direction: column; gap: 1px; }
+  .sidebar a, .sidebar button.navlink {
+    display: block; width: 100%; text-align: left; padding: 6px 9px; border-radius: 5px;
+    color: var(--text); text-decoration: none; font-size: 13px; background: none; border: none;
+    font-family: var(--sans); cursor: pointer;
+  }
+  .sidebar a:hover, .sidebar button.navlink:hover { background: var(--card); }
+  .sidebar a.current, .sidebar button.navlink.current { background: var(--card); font-weight: 600; color: var(--olive-dark); }
+
+  main.view { padding: 28px 36px 56px; max-width: 900px; }
+  main.view[hidden] { display: none; }
+
+  .page-head { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 22px; }
+  h1 { font-family: var(--serif); font-size: 19px; font-weight: 600; margin: 0 0 4px; color: var(--olive-dark); }
+  .subtitle { margin: 0; color: var(--muted); font-size: 12.5px; max-width: 56ch; }
+
+  .pill-toggle { display: inline-flex; gap: 2px; background: var(--grid); padding: 2px; border-radius: 7px; }
+  .pill-toggle button {
+    font-family: var(--sans); font-size: 12px; color: var(--muted); background: transparent; border: none;
+    padding: 7px 13px; border-radius: 5px; cursor: pointer;
+  }
+  .pill-toggle button:hover { color: var(--text); }
+  .pill-toggle button.active { background: var(--card); color: var(--olive-dark); font-weight: 600; }
+
+  /* --- Panels / cards --- */
+  .panel { background: var(--card); border: 1px solid var(--grid); border-radius: 8px; padding: 18px 20px 20px; margin-bottom: 18px; }
+  .panel h2 { font-family: var(--serif); font-size: 14px; font-weight: 600; margin: 0 0 4px; color: var(--text); }
+  .panel .note { font-size: 11.5px; color: var(--muted); margin: 0 0 16px; }
+
+  /* --- Form --- */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 28px; }
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .field label { font-size: 12px; color: var(--text); }
+  .field .hint { font-size: 10.5px; color: var(--muted); }
+  .field input[type="text"], .field input[type="number"], .field input[type="date"], .field select, .field textarea {
+    font-family: var(--sans); font-size: 13px; color: var(--text); background: var(--bg);
+    border: 1px solid var(--grid); border-radius: 6px; padding: 8px 10px; width: 100%; accent-color: var(--olive);
+  }
+  .field textarea { resize: vertical; min-height: 56px; font-family: var(--sans); }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--olive); outline-offset: 1px; }
+  .radio-row { display: flex; gap: 18px; }
+  .radio-row label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+
+  .warning-box { background: var(--warn-bg); color: var(--warn-text); border-radius: 6px; padding: 9px 12px; font-size: 12px; margin-bottom: 8px; }
+  .info-line { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+
+  .save-btn {
+    font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--bg); background: var(--olive);
+    border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; margin-top: 4px;
+  }
+  .save-btn:disabled { background: var(--grid); color: var(--muted); cursor: not-allowed; }
+  .save-btn:hover:not(:disabled) { background: var(--olive-dark); }
+
+  /* --- Chart screenshot dropzone --- */
+  .dropzone {
+    border: 1.5px dashed var(--grid); border-radius: 8px; padding: 20px; text-align: center;
+    color: var(--muted); font-size: 12px; cursor: pointer; background: var(--bg); transition: border-color .1s ease;
+  }
+  .dropzone:hover, .dropzone.drag { border-color: var(--olive); color: var(--olive-dark); }
+  .dropzone svg { display: block; margin: 0 auto 8px; opacity: 0.6; }
+  .dropzone input[type="file"] { display: none; }
+  .thumb-preview { display: none; margin-top: 10px; }
+  .thumb-preview.show { display: flex; align-items: center; gap: 10px; }
+  .thumb-preview img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--grid); }
+  .thumb-preview .meta { font-size: 11.5px; color: var(--text); }
+  .thumb-preview .remove { font-size: 11px; color: var(--loss); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; }
+
+  /* --- Report --- */
+  .export-row { display: flex; gap: 8px; }
+  .export-btn {
+    font-family: var(--sans); font-size: 12px; color: var(--olive-dark); background: var(--card);
+    border: 1px solid var(--grid); border-radius: 6px; padding: 7px 13px; cursor: pointer;
+  }
+  .export-btn:hover { background: var(--bg); border-color: var(--olive); }
+  .export-btn.primary { background: var(--olive); color: var(--bg); border-color: var(--olive); }
+  .export-btn.primary:hover { background: var(--olive-dark); }
+
+  .report-head { border-bottom: 2px solid var(--olive-dark); padding-bottom: 14px; margin-bottom: 20px; }
+  .report-head .eyebrow { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .report-head h1 { font-size: 24px; margin-bottom: 6px; }
+  .report-head .meta { font-size: 12px; color: var(--muted); }
+
+  .rkpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--grid); border: 1px solid var(--grid); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+  .rkpi { background: var(--card); padding: 14px 16px; }
+  .rkpi .label { font-size: 10.5px; color: var(--muted); margin-bottom: 4px; }
+  .rkpi .value { font-family: var(--serif); font-size: 21px; font-variant-numeric: tabular-nums; }
+  .rkpi .value.neg { color: var(--loss); }
+  .rkpi .value.neutral { color: var(--olive-dark); }
+  .rkpi .caption { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+
+  #report-equity-svg { width: 100%; height: 160px; display: block; overflow: visible; }
+
+  .verdict-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  .verdict-card { border: 1px solid var(--grid); border-radius: 7px; padding: 14px 16px; background: var(--bg); }
+  .verdict-card .tag { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 7px; }
+  .verdict-card.has-setup .tag { color: var(--win); }
+  .verdict-card.no-setup .tag { color: var(--loss); }
+  .verdict-card .n { color: var(--muted); font-size: 11.5px; margin-bottom: 7px; }
+  .verdict-card .avg { font-family: var(--serif); font-size: 21px; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+  .verdict-card.has-setup .avg { color: var(--win); }
+  .verdict-card.no-setup .avg { color: var(--loss); }
+
+  .mini-list { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px; }
+  .mini-list .sublabel { font-size: 10.5px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .mini-row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 5px 0; border-top: 1px solid var(--grid); }
+  .mini-row:first-of-type { border-top: none; }
+  .mini-row .n { color: var(--muted); font-size: 11px; }
+  .mini-row .v.neg { color: var(--loss); }
+  .mini-row .v.pos { color: var(--win); }
+
+  .report-foot { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    main.view { padding: 20px 16px 48px; }
+  }
+  @media (max-width: 640px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .rkpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .verdict-cards, .mini-list { grid-template-columns: 1fr; }
+  }
+
+  @media print {
+    .sidebar, .pill-toggle, .export-row, #view-log-trade { display: none !important; }
+    body { background: #fff; font-size: 12px; }
+    .panel { break-inside: avoid; border-color: #ccc; background: #fff; }
+    main.view { max-width: 100%; padding: 0; }
+  }
+</style>
+
+<div class="shell">
+  <aside class="sidebar">
+    <p class="brand">🫒 Journal</p>
+    <nav>
+      <a href="#">Sync check</a>
+      <button class="navlink current" data-view="log-trade">Log Trade</button>
+      <a href="#">Dashboard</a>
+      <button class="navlink" data-view="report">Report</button>
+    </nav>
+  </aside>
+
+  <main class="view" id="view-log-trade">
+    <div class="page-head">
+      <div>
+        <h1>Log Trade</h1>
+        <p class="subtitle">This is the screen that changes behaviour — no open trade saves without a plan.</p>
+      </div>
+    </div>
+
+    <div class="pill-toggle" id="mode-toggle" style="margin-bottom: 18px;">
+      <button class="active" data-mode="open">Open new trade</button>
+      <button data-mode="add">Add execution to open trade</button>
+    </div>
+
+    <!-- OPEN NEW TRADE -->
+    <section class="panel" id="mode-open">
+      <h2>Plan gate</h2>
+      <p class="note">Stop, target, size, and a one-line thesis are required before this can save as Open.</p>
+      <div class="form-grid">
+        <div>
+          <div class="field"><label>Symbol</label><input type="text" id="lt-symbol" placeholder="e.g. PTT"></div>
+          <div class="field"><label>Account</label><select><option>KS</option><option>LIB</option></select></div>
+          <div class="field"><label>Entry date</label><input type="date" value="2026-07-26"></div>
+          <div class="field"><label>Entry price (฿)</label><input type="number" step="0.01" placeholder="0.00" id="lt-price"></div>
+          <div class="field"><label>Shares (size)</label><input type="number" step="100" placeholder="0" id="lt-shares"></div>
+          <div class="field"><label>Commission (฿)</label><input type="number" step="0.01" placeholder="0.00"></div>
+        </div>
+        <div>
+          <div class="field"><label>Stop (฿)</label><input type="number" step="0.01" placeholder="0.00" id="lt-stop"></div>
+          <div class="field"><label>Target (฿)</label><input type="number" step="0.01" placeholder="0.00" id="lt-target"></div>
+          <div class="field"><label>Setup — leave blank if this wasn't a real technical setup</label>
+            <select><option value="">blank on purpose is fine</option><option>Breakout</option><option>Red to green</option></select>
+          </div>
+          <div class="field"><label>Entry context — why did you press the button?</label>
+            <select><option value="">choose or add options</option><option>Guru's advice</option><option>Buy the dip</option><option>Bad news</option><option>Good news</option><option>No plan / impulse</option></select>
+          </div>
+          <div class="field"><label>Thesis — one line</label>
+            <textarea id="lt-thesis" placeholder="Why this trade, right now, in one sentence."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="field" style="max-width: 420px;">
+        <label>Chart screenshot <span class="hint">(optional)</span></label>
+        <div class="dropzone" id="dropzone-open" tabindex="0">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15l-5-5-9 9"/></svg>
+          Drop a chart screenshot here, or click to upload<br>
+          <span class="hint">or paste a TradingView / chart link instead</span>
+          <input type="file" accept="image/*" id="file-open">
+        </div>
+        <div class="thumb-preview" id="thumb-open"><img alt=""><span class="meta"></span><button class="remove">remove</button></div>
+      </div>
+
+      <div id="lt-warnings" style="margin-top: 16px;"></div>
+      <button class="save-btn" id="lt-save" disabled>Save as Open</button>
+    </section>
+
+    <!-- ADD EXECUTION -->
+    <section class="panel" id="mode-add" style="display:none;">
+      <h2>Add execution</h2>
+      <div class="field" style="max-width: 420px;">
+        <label>Open trade</label>
+        <select><option>T004 — MFEC (3,000 shares held)</option><option>T005 — HUMAN (8,000 shares held)</option><option>T028 — ERW (62,000 shares held)</option></select>
+      </div>
+      <p class="info-line">Stop ฿8.80 · Target ฿12.20 · 1R ฿653.94 &nbsp;·&nbsp; Thesis: breakout above 200d MA, volume confirms</p>
+
+      <div class="form-grid">
+        <div>
+          <div class="field"><label>Side</label>
+            <div class="radio-row">
+              <label><input type="radio" name="side" checked> Buy</label>
+              <label><input type="radio" name="side"> Sell</label>
+            </div>
+          </div>
+          <div class="field"><label>Execution date</label><input type="date" value="2026-07-26"></div>
+        </div>
+        <div>
+          <div class="field"><label>Price (฿)</label><input type="number" step="0.01" placeholder="0.00"></div>
+          <div class="field"><label>Units</label><input type="number" step="100" placeholder="0"></div>
+          <div class="field"><label>Commission (฿)</label><input type="number" step="0.01" placeholder="0.00"></div>
+        </div>
+      </div>
+
+      <div class="field" style="max-width: 420px;">
+        <label>Chart screenshot <span class="hint">(optional)</span></label>
+        <div class="dropzone" id="dropzone-add" tabindex="0">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15l-5-5-9 9"/></svg>
+          Drop a chart screenshot here, or click to upload
+          <input type="file" accept="image/*" id="file-add">
+        </div>
+        <div class="thumb-preview" id="thumb-add"><img alt=""><span class="meta"></span><button class="remove">remove</button></div>
+      </div>
+
+      <button class="save-btn">Save execution</button>
+    </section>
+  </main>
+
+  <main class="view" id="view-report" hidden>
+    <div class="page-head">
+      <div>
+        <h1>Report</h1>
+        <p class="subtitle">A shareable summary of your trading, for any period.</p>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap: wrap;">
+        <div class="pill-toggle" id="report-period"></div>
+        <div class="export-row">
+          <button class="export-btn" id="btn-copy">Copy summary</button>
+          <button class="export-btn primary" id="btn-print">Download PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="report-body">
+      <div class="report-head">
+        <div class="eyebrow">🫒 Trading Journal</div>
+        <h1 id="report-title">Trading report — All time</h1>
+        <div class="meta" id="report-meta"></div>
+      </div>
+
+      <div class="rkpi-grid" id="report-kpis"></div>
+
+      <h2>Equity curve</h2>
+      <svg id="report-equity-svg" viewBox="0 0 820 160" preserveAspectRatio="none"></svg>
+
+      <h2 style="margin-top:20px;">Setup vs. tip</h2>
+      <div class="verdict-cards" id="report-verdict"></div>
+
+      <h2 style="margin-top:20px;">Process</h2>
+      <div class="mini-list" id="report-process"></div>
+
+      <p class="report-foot" id="report-foot"></p>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  // ---------------- Nav switching ----------------
+  const views = { 'log-trade': document.getElementById('view-log-trade'), 'report': document.getElementById('view-report') };
+  document.querySelectorAll('.navlink').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.navlink').forEach(b => b.classList.remove('current'));
+      btn.classList.add('current');
+      Object.entries(views).forEach(([k, el]) => { el.hidden = (k !== btn.dataset.view); });
+    });
+  });
+
+  // ---------------- Log Trade: mode toggle ----------------
+  const modeToggle = document.getElementById('mode-toggle');
+  modeToggle.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeToggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('mode-open').style.display = btn.dataset.mode === 'open' ? '' : 'none';
+      document.getElementById('mode-add').style.display = btn.dataset.mode === 'add' ? '' : 'none';
+    });
+  });
+
+  // ---------------- Log Trade: live plan gate ----------------
+  const ltFields = ['lt-symbol', 'lt-shares', 'lt-stop', 'lt-target', 'lt-thesis'].map(id => document.getElementById(id));
+  const warnEl = document.getElementById('lt-warnings');
+  const saveBtn = document.getElementById('lt-save');
+  function checkGate() {
+    const [symbol, shares, stop, target, thesis] = ltFields.map(f => f.value.trim());
+    const errs = [];
+    if (!symbol) errs.push('Symbol is required.');
+    if (!shares || Number(shares) <= 0) errs.push('Shares (size) is required.');
+    if (!stop || Number(stop) <= 0) errs.push('Stop is required.');
+    if (!target || Number(target) <= 0) errs.push('Target is required.');
+    if (!thesis) errs.push('A one-line thesis is required.');
+    const price = Number(document.getElementById('lt-price').value);
+    if (stop && price && Number(stop) >= price) errs.push("Stop must be below entry price — that's what makes it a stop.");
+    warnEl.innerHTML = errs.map(e => `<div class="warning-box">${e}</div>`).join('');
+    saveBtn.disabled = errs.length > 0;
+  }
+  ltFields.forEach(f => f.addEventListener('input', checkGate));
+  document.getElementById('lt-price').addEventListener('input', checkGate);
+  checkGate();
+
+  // ---------------- Chart screenshot dropzones ----------------
+  function wireDropzone(zoneId, fileId, thumbId) {
+    const zone = document.getElementById(zoneId), input = document.getElementById(fileId), thumb = document.getElementById(thumbId);
+    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
+    ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('drag'); }));
+    ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('drag'); }));
+    zone.addEventListener('drop', e => { if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+    input.addEventListener('change', () => { if (input.files[0]) handleFile(input.files[0]); });
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        thumb.querySelector('img').src = reader.result;
+        thumb.querySelector('.meta').textContent = file.name;
+        thumb.classList.add('show');
+      };
+      reader.readAsDataURL(file);
+    }
+    thumb.querySelector('.remove').addEventListener('click', () => {
+      thumb.classList.remove('show');
+      input.value = '';
+    });
+  }
+  wireDropzone('dropzone-open', 'file-open', 'thumb-open');
+  wireDropzone('dropzone-add', 'file-add', 'thumb-add');
+
+  // ---------------- Report: shared data + compute (ported from Dashboard) ----------------
+  const TRADES = [{"id":"T002","date":"2022-09-16","pnl":14583.63,"ctx":["Good news","No plan / impulse"],"setup":false,"mistakes":[],"exit":"Bailed early (fear)","rmult":null,"holding":150},{"id":"T006","date":"2022-09-16","pnl":-933.78,"ctx":["No plan / impulse"],"setup":false,"mistakes":[],"exit":"Bailed early (fear)","rmult":-1.14,"holding":1},{"id":"T003","date":"2022-10-03","pnl":118.77,"ctx":["Guru's advice"],"setup":false,"mistakes":["Held winner too long"],"exit":"Hit stop","rmult":0.18,"holding":31},{"id":"T008","date":"2022-10-07","pnl":-243.39,"ctx":["Guru's advice"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-0.15,"holding":2},{"id":"T007","date":"2023-04-26","pnl":-2441.61,"ctx":["Guru's advice","Bad news"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-8.27,"holding":219},{"id":"T010","date":"2023-04-27","pnl":-4668.52,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-4.89,"holding":70},{"id":"T011","date":"2023-09-13","pnl":15.21,"ctx":["Guru's advice"],"setup":false,"mistakes":["Held winner too long"],"exit":"News-driven exit","rmult":0.03,"holding":56},{"id":"T012","date":"2023-11-01","pnl":-714.25,"ctx":["Buy the dip"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-1.57,"holding":91},{"id":"T014","date":"2024-05-24","pnl":-1251.54,"ctx":["Buy the dip"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-4.16,"holding":22},{"id":"T015","date":"2024-07-18","pnl":-501.16,"ctx":["No plan / impulse"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-1.61,"holding":8},{"id":"T016","date":"2024-11-21","pnl":410.47,"ctx":[],"setup":true,"mistakes":["Held winner too long"],"exit":"Trailing stop","rmult":0.23,"holding":97},{"id":"T017","date":"2025-01-14","pnl":-416.35,"ctx":["Buy the dip"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-1.02,"holding":63},{"id":"T018","date":"2025-01-14","pnl":-494.59,"ctx":["Buy the dip","Average down (add to loser)"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-0.98,"holding":1},{"id":"T019","date":"2025-01-16","pnl":-211.76,"ctx":["No plan / impulse"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-1.03,"holding":1},{"id":"T020","date":"2025-02-07","pnl":-1609.64,"ctx":["Buy the dip","Guru's advice"],"setup":false,"mistakes":["Ignored plan","Held loser past stop"],"exit":"Hit stop","rmult":-6.52,"holding":22},{"id":"T021","date":"2025-02-07","pnl":-1016.49,"ctx":["Buy the dip"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-1.01,"holding":1},{"id":"T022","date":"2025-02-26","pnl":-1116.13,"ctx":["Buy the dip"],"setup":false,"mistakes":["Ignored plan"],"exit":"Hit stop","rmult":-3.62,"holding":0},{"id":"T024","date":"2025-04-03","pnl":-415.34,"ctx":["Buy the dip"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-1.02,"holding":16},{"id":"T023","date":"2026-02-10","pnl":691.15,"ctx":["Buy the dip"],"setup":false,"mistakes":[],"exit":"Partial / scale-out","rmult":1.14,"holding":347},{"id":"T025","date":"2026-02-25","pnl":-2255.76,"ctx":["Buy the dip"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-3.0,"holding":29},{"id":"T030","date":"2026-03-02","pnl":-1703.85,"ctx":["Bad news"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-2.09,"holding":0},{"id":"T029","date":"2026-03-02","pnl":-768.77,"ctx":["Bad news"],"setup":false,"mistakes":["Chased entry"],"exit":null,"rmult":-1.67,"holding":0},{"id":"T026","date":"2026-03-10","pnl":2704.2,"ctx":[],"setup":true,"mistakes":["Cut winner early"],"exit":"Partial / scale-out","rmult":4.5,"holding":19},{"id":"T034","date":"2026-03-20","pnl":-1223.12,"ctx":["Bad news"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-2.97,"holding":14},{"id":"T035","date":"2026-03-20","pnl":-629.35,"ctx":[],"setup":true,"mistakes":["Ignored plan"],"exit":"Hit stop","rmult":-1.02,"holding":9},{"id":"T036","date":"2026-03-25","pnl":373.11,"ctx":["Buy the dip"],"setup":false,"mistakes":["Cut winner early"],"exit":"Partial / scale-out","rmult":1.19,"holding":1},{"id":"T037","date":"2026-03-26","pnl":-899.46,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-1.53,"holding":0},{"id":"T027","date":"2026-03-26","pnl":-4379.5,"ctx":["Bad news"],"setup":false,"mistakes":["Ignored plan"],"exit":null,"rmult":-10.53,"holding":24},{"id":"T038","date":"2026-04-10","pnl":471.06,"ctx":["Average down (add to loser)"],"setup":true,"mistakes":["Chased entry"],"exit":null,"rmult":0.39,"holding":3},{"id":"T040","date":"2026-05-13","pnl":-832.14,"ctx":["Buy the dip"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-1.02,"holding":1},{"id":"T039","date":"2026-05-20","pnl":-545.96,"ctx":["No plan / impulse"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-1.04,"holding":15},{"id":"T041","date":"2026-05-27","pnl":-326.6,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-0.32,"holding":14},{"id":"T048","date":"2026-05-27","pnl":-905.19,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-2.99,"holding":0},{"id":"T049","date":"2026-05-28","pnl":-327.78,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-1.53,"holding":1},{"id":"T047","date":"2026-05-28","pnl":-2776.97,"ctx":["Guru's advice"],"setup":false,"mistakes":["Held loser past stop"],"exit":"Hit stop","rmult":-3.67,"holding":1},{"id":"T043","date":"2026-05-29","pnl":-650.77,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-2.08,"holding":10},{"id":"T044","date":"2026-05-29","pnl":3965.44,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Trailing stop","rmult":6.44,"holding":7},{"id":"T033","date":"2026-05-29","pnl":4524.21,"ctx":["Bad news"],"setup":false,"mistakes":["Cut winner early"],"exit":"Trailing stop","rmult":8.95,"holding":84},{"id":"T050","date":"2026-06-05","pnl":-72.38,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-0.12,"holding":0},{"id":"T053","date":"2026-06-08","pnl":-507.91,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-1.36,"holding":0},{"id":"T052","date":"2026-06-09","pnl":-427.03,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-0.26,"holding":1},{"id":"T051","date":"2026-06-09","pnl":-543.55,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-1.29,"holding":1},{"id":"T054","date":"2026-06-09","pnl":-539.24,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-0.53,"holding":0},{"id":"T055","date":"2026-06-18","pnl":-247.87,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-0.17,"holding":0},{"id":"T046","date":"2026-06-18","pnl":-931.46,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-1.83,"holding":24},{"id":"T059","date":"2026-07-21","pnl":-219.72,"ctx":["Guru's advice"],"setup":false,"mistakes":[],"exit":"Hit stop","rmult":-0.71,"holding":0}];
+
+  const DATA_MIN = TRADES[0].date, DATA_MAX = TRADES[TRADES.length - 1].date;
+  const PRESETS = [
+    { key: 'all', label: 'All time', from: null, to: null },
+    { key: 'thisyear', label: 'This year', from: '2026-01-01', to: null },
+    { key: '90d', label: 'Last 90 days', from: '2026-04-27', to: null },
+  ];
+  let currentKey = 'all';
+
+  const sum = arr => arr.reduce((a, b) => a + b, 0);
+  const fmt = (n, sign) => {
+    const abs = Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (n < 0 ? '−' : (sign ? '+' : '')) + abs;
+  };
+  const fmtDate = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  function computeForRange({ from, to }) {
+    const filtered = TRADES.filter(t => (!from || t.date >= from) && (!to || t.date <= to));
+    const wins = filtered.filter(t => t.pnl >= 0);
+    const losses = filtered.filter(t => t.pnl < 0);
+    const winRate = filtered.length ? wins.length / filtered.length : 0;
+    const grossProfit = sum(wins.map(t => t.pnl));
+    const grossLoss = sum(losses.map(t => t.pnl));
+    const pf = grossLoss !== 0 ? grossProfit / Math.abs(grossLoss) : null;
+    const totalPnl = sum(filtered.map(t => t.pnl));
+    const expectancy = filtered.length ? totalPnl / filtered.length : 0;
+    let cum = 0;
+    const curve = filtered.map(t => { cum += t.pnl; return { ...t, cum }; });
+    const hasSetup = filtered.filter(t => t.setup);
+    const noSetup = filtered.filter(t => !t.setup);
+    const hasSetupAvg = hasSetup.length ? sum(hasSetup.map(t => t.pnl)) / hasSetup.length : 0;
+    const noSetupAvg = noSetup.length ? sum(noSetup.map(t => t.pnl)) / noSetup.length : 0;
+    const groupBy = (getKeys) => {
+      const map = {};
+      filtered.forEach(t => getKeys(t).forEach(k => { map[k] = map[k] || { sum: 0, n: 0 }; map[k].sum += t.pnl; map[k].n++; }));
+      return Object.entries(map).map(([label, v]) => ({ label, sum: v.sum, n: v.n })).sort((a, b) => a.sum - b.sum);
+    };
+    const mistakeBars = groupBy(t => t.mistakes);
+    const exitBars = groupBy(t => t.exit ? [t.exit] : []);
+    return { filtered, winRate, pf, totalPnl, expectancy, curve, hasSetup, noSetup, hasSetupAvg, noSetupAvg, mistakeBars, exitBars };
+  }
+
+  // ---------------- Report period pills ----------------
+  const periodEl = document.getElementById('report-period');
+  PRESETS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.textContent = p.label;
+    btn.className = p.key === currentKey ? 'active' : '';
+    btn.addEventListener('click', () => {
+      currentKey = p.key;
+      [...periodEl.children].forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderReport();
+    });
+    periodEl.appendChild(btn);
+  });
+
+  function el(tag, attrs) {
+    const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function renderReport() {
+    const p = PRESETS.find(p => p.key === currentKey);
+    const d = computeForRange(p);
+
+    document.getElementById('report-title').textContent = `Trading report — ${p.label}`;
+    document.getElementById('report-meta').textContent =
+      `${d.filtered.length} closed trades · generated ${fmtDate('2026-07-26')}`;
+
+    const pfText = d.pf === null ? '—' : d.pf.toFixed(2);
+    document.getElementById('report-kpis').innerHTML = `
+      <div class="rkpi"><div class="label">Win rate</div><div class="value ${d.winRate < 0.4 ? 'neg' : 'neutral'}">${(d.winRate*100).toFixed(1)}%</div><div class="caption">${d.filtered.filter(t=>t.pnl>=0).length}W · ${d.filtered.filter(t=>t.pnl<0).length}L</div></div>
+      <div class="rkpi"><div class="label">Profit factor</div><div class="value ${d.pf!==null && d.pf<1?'neg':'neutral'}">${pfText}</div><div class="caption">gross profit ÷ gross loss</div></div>
+      <div class="rkpi"><div class="label">Realized P&amp;L</div><div class="value ${d.totalPnl<0?'neg':'neutral'}">${fmt(d.totalPnl, true)}</div><div class="caption">expectancy ${fmt(d.expectancy, true)} / trade</div></div>
+    `;
+
+    // equity curve
+    const svg = document.getElementById('report-equity-svg');
+    svg.innerHTML = '';
+    const W = 820, H = 160, padL = 6, padR = 6, padT = 10, padB = 18;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    if (d.curve.length >= 2) {
+      const cumVals = d.curve.map(t => t.cum);
+      const yMin = Math.min(0, ...cumVals), yMax = Math.max(0, ...cumVals);
+      const yPad = (yMax - yMin) * 0.12 || 100;
+      const yLo = yMin - yPad, yHi = yMax + yPad;
+      const xAt = i => padL + (plotW * i) / (d.curve.length - 1);
+      const yAt = v => padT + plotH - ((v - yLo) / (yHi - yLo)) * plotH;
+      const y0 = yAt(0);
+      svg.appendChild(el('line', { x1: padL, x2: W - padR, y1: y0, y2: y0, stroke: 'var(--muted)', 'stroke-opacity': 0.4, 'stroke-dasharray': '3 3' }));
+      let areaD = `M ${xAt(0)} ${y0}`;
+      d.curve.forEach((t, i) => { areaD += ` L ${xAt(i)} ${yAt(t.cum)}`; });
+      areaD += ` L ${xAt(d.curve.length-1)} ${y0} Z`;
+      svg.appendChild(el('path', { d: areaD, fill: 'var(--olive-light)', 'fill-opacity': 0.2 }));
+      const lineD = d.curve.map((t, i) => (i===0?'M':'L') + ` ${xAt(i)} ${yAt(t.cum)}`).join(' ');
+      svg.appendChild(el('path', { d: lineD, fill: 'none', stroke: 'var(--olive)', 'stroke-width': 1.75, 'stroke-linecap': 'round' }));
+    } else {
+      const t = el('text', { x: W/2, y: H/2, 'text-anchor': 'middle', fill: 'var(--muted)', 'font-size': 11 });
+      t.textContent = 'Not enough closed trades in this period.';
+      svg.appendChild(t);
+    }
+
+    // verdict
+    document.getElementById('report-verdict').innerHTML = `
+      <div class="verdict-card has-setup">
+        <div class="tag">Has a real setup</div>
+        <div class="n">${d.hasSetup.length} of ${d.filtered.length} closed trades</div>
+        <div class="avg">${fmt(d.hasSetupAvg, true)}</div>
+      </div>
+      <div class="verdict-card no-setup">
+        <div class="tag">No setup — just a tip</div>
+        <div class="n">${d.noSetup.length} of ${d.filtered.length} closed trades</div>
+        <div class="avg">${fmt(d.noSetupAvg, true)}</div>
+      </div>
+    `;
+
+    // process mini-lists (top 3 each)
+    const topN = (arr) => arr.slice(0, 3);
+    const rowsHtml = (arr) => arr.length
+      ? topN(arr).map(r => `<div class="mini-row"><span>${r.label} <span class="n">n=${r.n}</span></span><span class="v ${r.sum>=0?'pos':'neg'}">${fmt(r.sum, true)}</span></div>`).join('')
+      : '<div class="mini-row"><span>No data in this period.</span></div>';
+    document.getElementById('report-process').innerHTML = `
+      <div><p class="sublabel">Top mistakes</p>${rowsHtml(d.mistakeBars)}</div>
+      <div><p class="sublabel">Top exit reasons</p>${rowsHtml(d.exitBars)}</div>
+    `;
+
+    document.getElementById('report-foot').textContent =
+      `Open positions are not included — this report covers closed trades only, ${p.label.toLowerCase()}.`;
+  }
+  renderReport();
+
+  // ---------------- Export actions ----------------
+  document.getElementById('btn-print').addEventListener('click', () => window.print());
+  document.getElementById('btn-copy').addEventListener('click', () => {
+    const text = document.getElementById('report-body').innerText;
+    navigator.clipboard?.writeText(text);
+    const btn = document.getElementById('btn-copy');
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = original; }, 1400);
+  });
+})();
+</script>

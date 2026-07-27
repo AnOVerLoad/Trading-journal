@@ -1,0 +1,5 @@
+streamlit>=1.36
+notion-client==2.5.0  # pinned: 2.6+ dropped databases.query for the data_sources API
+pandas>=2.2
+plotly>=5.22
+python-dotenv>=1.0

@@ -1,0 +1,404 @@
+<title>Trading Journal — Watchlist</title>
+<style>
+  :root {
+    --olive: #6E7A34;
+    --olive-dark: #525C27;
+    --olive-light: #A9B36B;
+    --win: #4F7A5E;
+    --loss: #A8574A;
+    --warn-bg: #EFE9D6;
+    --warn-text: #6B5A27;
+    --bg: #FAF8F2;
+    --card: #F1EFE6;
+    --text: #2B2B26;
+    --muted: #6B6B60;
+    --grid: #E4E1D5;
+    --serif: Iowan Old Style, Georgia, ui-serif, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13.5px; line-height: 1.5; }
+
+  .shell { display: grid; grid-template-columns: 152px minmax(0, 1fr); min-height: 100vh; }
+  .sidebar { border-right: 1px solid var(--grid); padding: 22px 14px; }
+  .sidebar .brand { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px 4px; }
+  .sidebar nav { display: flex; flex-direction: column; gap: 1px; }
+  .sidebar a { display: block; padding: 6px 9px; border-radius: 5px; color: var(--text); text-decoration: none; font-size: 13px; }
+  .sidebar a:hover { background: var(--card); }
+  .sidebar a.current { background: var(--card); font-weight: 600; color: var(--olive-dark); }
+
+  main { padding: 28px 36px 56px; max-width: 980px; }
+  .page-head { margin-bottom: 22px; }
+  h1 { font-family: var(--serif); font-size: 19px; font-weight: 600; margin: 0 0 4px; color: var(--olive-dark); }
+  .subtitle { margin: 0; color: var(--muted); font-size: 12.5px; max-width: 62ch; }
+
+  .panel { background: var(--card); border: 1px solid var(--grid); border-radius: 8px; padding: 18px 20px 20px; margin-bottom: 18px; }
+  .panel h2 { font-family: var(--serif); font-size: 14px; font-weight: 600; margin: 0 0 4px; color: var(--text); }
+  .panel .note { font-size: 11.5px; color: var(--muted); margin: 0 0 16px; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 28px; }
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .field label { font-size: 12px; color: var(--text); }
+  .field input, .field select, .field textarea {
+    font-family: var(--sans); font-size: 13px; color: var(--text); background: var(--bg);
+    border: 1px solid var(--grid); border-radius: 6px; padding: 8px 10px; width: 100%;
+  }
+  .field textarea { resize: vertical; min-height: 50px; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--olive); outline-offset: 1px; }
+
+  .save-btn {
+    font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--bg); background: var(--olive);
+    border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer;
+  }
+  .save-btn:hover { background: var(--olive-dark); }
+  .save-btn:disabled { background: var(--grid); color: var(--muted); cursor: not-allowed; }
+  .warning-box { background: var(--warn-bg); color: var(--warn-text); border-radius: 6px; padding: 9px 12px; font-size: 12px; margin-bottom: 8px; }
+
+  .checklist { border-top: 1px solid var(--grid); padding-top: 14px; margin: 4px 0 16px; }
+  .checklist .sublabel { font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+  .checklist .sublabel .hint { text-transform: none; letter-spacing: normal; font-weight: 400; font-size: 11px; color: var(--muted); }
+  .chip-picker { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+  .chip-option {
+    font-family: var(--sans); font-size: 12px; padding: 6px 12px; border-radius: 14px; cursor: pointer;
+    border: 1px solid var(--grid); background: var(--bg); color: var(--text); user-select: none;
+  }
+  .chip-option:hover { border-color: var(--olive); }
+  .chip-option.selected { background: var(--olive); color: var(--bg); border-color: var(--olive); }
+  .chip-add-row { display: flex; gap: 6px; margin-bottom: 4px; }
+  .chip-add-row input {
+    font-family: var(--sans); font-size: 12px; color: var(--text); background: var(--bg);
+    border: 1px solid var(--grid); border-radius: 6px; padding: 6px 9px; flex: 1; max-width: 260px;
+  }
+  .chip-add-row input:focus { outline: 2px solid var(--olive); outline-offset: 1px; }
+  .rr-row { font-size: 12px; color: var(--muted); margin-top: 8px; padding: 7px 10px; background: var(--bg); border-radius: 6px; }
+  .rr-row.pass { color: var(--win); }
+  .rr-row.fail { color: var(--loss); }
+  .checklist-score { font-size: 10.5px; color: var(--muted); }
+  .checklist-score b { color: var(--olive-dark); }
+
+  .stat-row { display: flex; gap: 24px; margin-bottom: 4px; }
+  .stat { font-size: 12px; color: var(--muted); }
+  .stat b { font-family: var(--serif); font-size: 16px; color: var(--olive-dark); font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead th {
+    text-align: left; font-size: 10px; letter-spacing: 0.03em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; padding: 0 10px 8px; border-bottom: 1px solid var(--grid);
+  }
+  thead th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody td { padding: 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(110,122,52,0.05); }
+  .sym { font-weight: 600; }
+  .thesis-cell { color: var(--muted); font-size: 11.5px; max-width: 220px; }
+  .days { color: var(--muted); font-size: 11px; }
+
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
+  .badge.watching { background: var(--grid); color: var(--olive-dark); }
+  .badge.traded { background: var(--win); color: var(--bg); }
+  .badge.dropped { background: var(--grid); color: var(--muted); }
+
+  .row-actions { display: flex; gap: 6px; }
+  .action-btn {
+    font-family: var(--sans); font-size: 11px; border-radius: 5px; padding: 5px 9px; cursor: pointer; border: 1px solid var(--grid);
+    background: var(--bg); color: var(--text); white-space: nowrap;
+  }
+  .action-btn.primary { background: var(--olive); color: var(--bg); border-color: var(--olive); }
+  .action-btn.primary:hover { background: var(--olive-dark); }
+  .action-btn.ghost:hover { border-color: var(--loss); color: var(--loss); }
+
+  .empty-note { font-size: 12px; color: var(--muted); padding: 14px 0; }
+
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--olive-dark); color: var(--bg); font-size: 12.5px; padding: 10px 18px; border-radius: 8px;
+    opacity: 0; pointer-events: none; transition: all .18s ease;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    main { padding: 20px 16px 48px; }
+  }
+  @media (max-width: 640px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="shell">
+  <aside class="sidebar">
+    <p class="brand">🫒 Journal</p>
+    <nav>
+      <a href="#">Sync check</a>
+      <a href="#">Log Trade</a>
+      <a href="#">Dashboard</a>
+      <a href="#" class="current">Watchlist</a>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="page-head">
+      <h1>Watchlist</h1>
+      <p class="subtitle">Screening criteria found something — write the plan down before the market moves, so the trade (if it happens) follows the plan, not the moment.</p>
+    </div>
+
+    <div class="stat-row" id="stats"></div>
+
+    <section class="panel">
+      <h2>Add to watchlist</h2>
+      <p class="note">Same discipline as Log Trade — stop, target, and a one-line thesis, before there's a position to defend.</p>
+      <div class="form-grid">
+        <div>
+          <div class="field"><label>Symbol</label><input type="text" id="wl-symbol" placeholder="e.g. BH"></div>
+          <div class="field"><label>Trigger price (฿)</label><input type="number" step="0.01" id="wl-trigger" placeholder="what you're waiting for"></div>
+          <div class="field"><label>Stop (฿)</label><input type="number" step="0.01" id="wl-stop"></div>
+        </div>
+        <div>
+          <div class="field"><label>Target (฿)</label><input type="number" step="0.01" id="wl-target"></div>
+          <div class="field"><label>Setup</label>
+            <select id="wl-setup"><option value="">blank on purpose is fine</option><option>Breakout</option><option>Red to green</option></select>
+          </div>
+          <div class="field"><label>Thesis — one line</label><textarea id="wl-thesis" placeholder="Why this stock, once it triggers."></textarea></div>
+        </div>
+      </div>
+
+      <div class="checklist" id="wl-checklist">
+        <p class="sublabel">Screening checklist <span class="hint">— advisory, not required. Click a chip to mark it met.</span></p>
+        <div class="chip-picker" id="chip-picker"></div>
+        <div class="chip-add-row">
+          <input type="text" id="chip-new" placeholder="+ add your own criterion">
+          <button type="button" id="chip-add-btn" class="action-btn">Add</button>
+        </div>
+        <div class="rr-row" id="rr-readout">Reward:Risk — enter trigger, stop, and target above</div>
+      </div>
+
+      <div id="wl-warnings"></div>
+      <button class="save-btn" id="wl-save" disabled>Add to watchlist</button>
+    </section>
+
+    <section class="panel">
+      <h2>Currently watching</h2>
+      <p class="note">Nothing here forces a decision — an entry just sits until you act on it or drop it.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Added</th>
+              <th class="num">Trigger</th><th class="num">Stop</th><th class="num">Target</th>
+              <th>Setup</th><th>Thesis</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="watching-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>History</h2>
+      <p class="note">Traded entries link back to the trade they became — did the real fill match the plan?</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Symbol</th><th>Added</th><th>Status</th><th>Plan</th><th>Traded as</th></tr>
+          </thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
+      <div class="empty-note" id="history-empty">Nothing traded or dropped yet.</div>
+    </section>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  // The pool of screening criteria — a Notion multi-select's OPTIONS in the real
+  // app, so add/rename/drop happens in Notion (or the "+ add" box below) with no
+  // code change. This array just mirrors that at mockup time.
+  let CHECKLIST_OPTIONS = ["Volume confirms it", "Market/sector not fighting me", "Know the catalyst", "Not chasing"];
+
+  let entries = [
+    { symbol: 'BH', added: '2026-07-20', trigger: 210.00, stop: 200.00, target: 235.00, setup: 'Breakout',
+      thesis: 'Basing above 200d MA for 6 weeks; want a close above 210 on volume.', status: 'Watching', tradedAs: null,
+      checklist: ["Volume confirms it", "Market/sector not fighting me", "Know the catalyst", "Not chasing"] },
+    { symbol: 'BDMS', added: '2026-07-20', trigger: 29.50, stop: 27.80, target: 34.00, setup: 'Red to green',
+      thesis: 'Pulled back to 200d MA after earnings; waiting for reclaim of 29.5.', status: 'Watching', tradedAs: null,
+      checklist: ["Volume confirms it", "Know the catalyst", "Not chasing"] },
+  ];
+  let nextTradeId = 60;
+  let selectedChecklist = new Set();
+
+  const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const daysSince = iso => Math.round((new Date('2026-07-27') - new Date(iso)) / 86400000);
+  function rewardRisk(trigger, stop, target) {
+    if (!trigger || !stop || !target || trigger <= stop) return null;
+    return (target - trigger) / (trigger - stop);
+  }
+
+  const chipPicker = document.getElementById('chip-picker');
+  function renderChipPicker() {
+    chipPicker.innerHTML = CHECKLIST_OPTIONS.map(opt => `
+      <div class="chip-option ${selectedChecklist.has(opt) ? 'selected' : ''}" data-item="${opt}">${opt}</div>
+    `).join('');
+    chipPicker.querySelectorAll('.chip-option').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const item = chip.dataset.item;
+        selectedChecklist.has(item) ? selectedChecklist.delete(item) : selectedChecklist.add(item);
+        renderChipPicker();
+      });
+    });
+  }
+  document.getElementById('chip-add-btn').addEventListener('click', addChecklistItem);
+  document.getElementById('chip-new').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addChecklistItem(); } });
+  function addChecklistItem() {
+    const input = document.getElementById('chip-new');
+    const val = input.value.trim();
+    if (!val) return;
+    if (!CHECKLIST_OPTIONS.includes(val)) CHECKLIST_OPTIONS.push(val);
+    selectedChecklist.add(val);
+    input.value = '';
+    renderChipPicker();
+  }
+  renderChipPicker();
+
+  const toast = document.getElementById('toast');
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  function render() {
+    const watching = entries.filter(e => e.status === 'Watching');
+    const history = entries.filter(e => e.status !== 'Watching');
+
+    document.getElementById('stats').innerHTML = `
+      <div class="stat"><b>${watching.length}</b> watching</div>
+      <div class="stat"><b>${entries.filter(e=>e.status==='Traded').length}</b> traded</div>
+      <div class="stat"><b>${entries.filter(e=>e.status==='Dropped').length}</b> dropped</div>
+    `;
+
+    const wBody = document.getElementById('watching-body');
+    wBody.innerHTML = watching.length ? watching.map(e => `
+      <tr>
+        <td class="sym">${e.symbol}</td>
+        <td>${e.added}<div class="days">${daysSince(e.added)}d watching</div></td>
+        <td class="num">${fmt(e.trigger)}</td>
+        <td class="num">${fmt(e.stop)}</td>
+        <td class="num">${fmt(e.target)}</td>
+        <td>${e.setup || '<span style="color:var(--muted)">—</span>'}</td>
+        <td class="thesis-cell">${e.thesis}<div class="checklist-score">${(() => {
+          const rr = rewardRisk(e.trigger, e.stop, e.target);
+          const rrText = rr === null ? 'R:R —' : `R:R ${rr.toFixed(1)}:1${rr >= 2 ? '' : ' ⚠'}`;
+          return `<b>${e.checklist.length}</b> criteria met · ${rrText}`;
+        })()}</div></td>
+        <td>
+          <div class="row-actions">
+            <button class="action-btn primary" data-action="trade" data-symbol="${e.symbol}">Trade this →</button>
+            <button class="action-btn ghost" data-action="drop" data-symbol="${e.symbol}">Drop</button>
+          </div>
+        </td>
+      </tr>
+    `).join('') : '';
+    if (!watching.length) {
+      wBody.innerHTML = `<tr><td colspan="8" class="empty-note">Nothing on the watchlist right now.</td></tr>`;
+    }
+
+    const hBody = document.getElementById('history-body');
+    document.getElementById('history-empty').style.display = history.length ? 'none' : 'block';
+    hBody.innerHTML = history.map(e => `
+      <tr>
+        <td class="sym">${e.symbol}</td>
+        <td>${e.added}</td>
+        <td><span class="badge ${e.status.toLowerCase()}">${e.status}</span></td>
+        <td class="thesis-cell">Trigger ${fmt(e.trigger)} · Stop ${fmt(e.stop)} · Target ${fmt(e.target)}</td>
+        <td>${e.tradedAs ? `<b>${e.tradedAs}</b>` : '<span style="color:var(--muted)">—</span>'}</td>
+      </tr>
+    `).join('');
+
+    document.querySelectorAll('[data-action="trade"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const e = entries.find(x => x.symbol === btn.dataset.symbol);
+        e.status = 'Traded';
+        e.tradedAs = 'T0' + (nextTradeId++);
+        render();
+        showToast(`${e.symbol} → opening Log Trade, pre-filled with this plan (stop ${fmt(e.stop)}, target ${fmt(e.target)}, thesis carried over). Just add your real fill price and size.`);
+      });
+    });
+    document.querySelectorAll('[data-action="drop"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const e = entries.find(x => x.symbol === btn.dataset.symbol);
+        e.status = 'Dropped';
+        render();
+        showToast(`${e.symbol} dropped from the watchlist.`);
+      });
+    });
+  }
+
+  // ---------------- Add-to-watchlist form ----------------
+  const fields = ['wl-symbol', 'wl-stop', 'wl-target', 'wl-thesis'].map(id => document.getElementById(id));
+  const warnEl = document.getElementById('wl-warnings');
+  const saveBtn = document.getElementById('wl-save');
+  function checkGate() {
+    const [symbol, stop, target, thesis] = fields.map(f => f.value.trim());
+    const errs = [];
+    if (!symbol) errs.push('Symbol is required.');
+    if (!stop) errs.push('Stop is required.');
+    if (!target) errs.push('Target is required.');
+    if (!thesis) errs.push('A one-line thesis is required.');
+    warnEl.innerHTML = errs.map(e => `<div class="warning-box">${e}</div>`).join('');
+    saveBtn.disabled = errs.length > 0;
+  }
+  fields.forEach(f => f.addEventListener('input', checkGate));
+  checkGate();
+
+  // live reward:risk readout on the form itself
+  const rrEl = document.getElementById('rr-readout');
+  const rrInputs = ['wl-trigger', 'wl-stop', 'wl-target'].map(id => document.getElementById(id));
+  function updateRR() {
+    const trigger = Number(document.getElementById('wl-trigger').value);
+    const stop = Number(document.getElementById('wl-stop').value);
+    const target = Number(document.getElementById('wl-target').value);
+    const rr = rewardRisk(trigger, stop, target);
+    rrEl.classList.remove('pass', 'fail');
+    if (rr === null) {
+      rrEl.textContent = 'Reward:Risk — enter trigger, stop, and target above';
+    } else if (rr >= 2) {
+      rrEl.textContent = `Reward:Risk ${rr.toFixed(1)}:1 — meets the 2:1 bar`;
+      rrEl.classList.add('pass');
+    } else {
+      rrEl.textContent = `Reward:Risk ${rr.toFixed(1)}:1 — below the usual 2:1 bar`;
+      rrEl.classList.add('fail');
+    }
+  }
+  rrInputs.forEach(f => f.addEventListener('input', updateRR));
+  updateRR();
+
+  saveBtn.addEventListener('click', () => {
+    entries.push({
+      symbol: document.getElementById('wl-symbol').value.trim().toUpperCase(),
+      added: '2026-07-27',
+      trigger: Number(document.getElementById('wl-trigger').value) || 0,
+      stop: Number(document.getElementById('wl-stop').value),
+      target: Number(document.getElementById('wl-target').value),
+      setup: document.getElementById('wl-setup').value,
+      thesis: document.getElementById('wl-thesis').value.trim(),
+      status: 'Watching', tradedAs: null,
+      checklist: [...selectedChecklist],
+    });
+    fields.forEach(f => f.value = '');
+    document.getElementById('wl-trigger').value = '';
+    document.getElementById('wl-setup').value = '';
+    selectedChecklist = new Set();
+    renderChipPicker();
+    checkGate();
+    updateRR();
+    render();
+    showToast('Added to watchlist.');
+  });
+
+  render();
+})();
+</script>
