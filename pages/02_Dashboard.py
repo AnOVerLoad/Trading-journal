@@ -24,6 +24,7 @@ from src.dashboard_stats import (
 )
 from src.notion_sync import sync
 from src.theme import CARD, GRID, LOSS, MUTED, OLIVE, OLIVE_DARK, OLIVE_LIGHT, TEXT, WIN, css, register_template
+from src.trade_math import replay
 
 st.set_page_config(page_title="Dashboard", page_icon="🫒", layout="wide")
 register_template()
@@ -41,7 +42,7 @@ except Exception as exc:  # noqa: BLE001
     st.error(f"Could not sync from Notion.\n\n{exc}")
     st.stop()
 
-trades = data["trades"]
+trades, executions = data["trades"], data["executions"]
 closed_all = trades[trades["status"] == "Closed"].copy()
 open_positions = trades[trades["status"] == "Open"].copy()
 
@@ -250,10 +251,13 @@ def fmt_or_dash(v: float) -> str:
 
 pos = open_positions.copy()
 pos["Plan"] = pos["stop"].apply(lambda v: "" if pd.notna(v) else "No plan on file")
+pos["held"] = pos["trade_id"].apply(
+    lambda tid: replay(executions[executions["trade_id"] == tid]).units
+)
 pos_display = pd.DataFrame({
     "Trade": pos["trade_id"], "Symbol": pos["symbol"], "Account": pos["account"],
     "Opened": pos["open_date"], "Avg cost": pos["avg_cost"].map("{:.2f}".format),
-    "Shares": pos["shares_bought"].astype(int),
+    "Shares": pos["held"].astype(int),
     "Stop": pos["stop"].map(fmt_or_dash), "Target": pos["target"].map(fmt_or_dash),
     "Planned 1R": pos["r1"].map(fmt_or_dash), "Plan": pos["Plan"],
 })
