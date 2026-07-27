@@ -184,12 +184,23 @@ else:  # Add execution to open trade
         return replay(executions[executions["trade_id"] == trade_id]).units
 
     open_trades["held"] = open_trades["trade_id"].apply(held_shares)
-    labels = {
-        f"{r.trade_id} — {r.symbol} ({r.held:g} shares held)": r.trade_id
+    trade_ids = open_trades["trade_id"].tolist()
+    trade_label = {
+        r.trade_id: f"{r.trade_id} — {r.symbol} ({r.held:g} shares held)"
         for r in open_trades.itertuples()
     }
-    label = st.selectbox("Open trade", options=list(labels.keys()))
-    trade_id = labels[label]
+    # trade_id (stable) is the widget's actual value; the display text carries the
+    # live share count. Keeping those separate — instead of embedding the count in
+    # the option itself — means a save elsewhere can't silently swap the selection.
+    trade_id = st.selectbox(
+        "Open trade", options=trade_ids, index=None,
+        format_func=lambda tid: trade_label.get(tid, tid),
+        placeholder="Choose a trade", key="lt_exec_trade_id",
+    )
+
+    if trade_id is None:
+        st.stop()
+
     trow = trades[trades["trade_id"] == trade_id].iloc[0]
     existing_rows = executions[executions["trade_id"] == trade_id]
     state_before = replay(existing_rows)
@@ -204,15 +215,16 @@ else:  # Add execution to open trade
         else:
             st.caption(f"Stop {fmt_plan(trow.stop)} · Target {fmt_plan(trow.target)} · 1R {fmt_plan(trow.r1, 2)}")
         st.caption(f"Thesis: {trow.thesis or '—'}")
-        side = st.radio("Side", ["Buy", "Sell"], horizontal=True)
-        exec_date = st.date_input("Execution date", value=date.today())
+        side = st.radio("Side", ["Buy", "Sell"], horizontal=True, key="lt_exec_side")
+        exec_date = st.date_input("Execution date", value=date.today(), key="lt_exec_date")
         exit_reason = None
         if side == "Sell":
-            exit_reason = st.selectbox("Exit reason (optional)", options=exit_reason_options, index=None)
+            exit_reason = st.selectbox("Exit reason (optional)", options=exit_reason_options,
+                                        index=None, key="lt_exec_reason")
     with c2:
-        price = st.number_input("Price (฿)", min_value=0.0, step=0.01, format="%.2f")
-        units = st.number_input("Units", min_value=0, step=100)
-        commission = st.number_input("Commission (฿)", min_value=0.0, step=0.01, format="%.2f")
+        price = st.number_input("Price (฿)", min_value=0.0, step=0.01, format="%.2f", key="lt_exec_price")
+        units = st.number_input("Units", min_value=0, step=100, key="lt_exec_units")
+        commission = st.number_input("Commission (฿)", min_value=0.0, step=0.01, format="%.2f", key="lt_exec_commission")
 
     errors = []
     if not price:
@@ -280,6 +292,9 @@ else:  # Add execution to open trade
             st.error(f"Save failed — nothing was written.\n\n{exc}")
         else:
             st.cache_data.clear()
+            for key in ("lt_exec_trade_id", "lt_exec_side", "lt_exec_date", "lt_exec_reason",
+                        "lt_exec_price", "lt_exec_units", "lt_exec_commission"):
+                st.session_state.pop(key, None)
             msg = f"Execution saved. Realized P&L so far: ฿{state_after.realized_pnl:,.2f}"
             if state_after.units <= 0:
                 msg += f" — trade closed, R-multiple {r_mult:.2f}" if r_mult is not None else " — trade closed"
