@@ -98,19 +98,20 @@ if wl_trigger and wl_stop and wl_target and wl_trigger > wl_stop:
     rr = (wl_target - wl_trigger) / (wl_trigger - wl_stop)
     (st.success if rr >= 2 else st.warning)(f"Reward:Risk {rr:.1f}:1" + ("" if rr >= 2 else " — below the usual 2:1 bar"))
 
-wl_errors = []
+wl_missing = []
 if not wl_symbol:
-    wl_errors.append("Symbol is required.")
+    wl_missing.append("Symbol")
 if not wl_stop:
-    wl_errors.append("Stop is required.")
+    wl_missing.append("Stop")
 if not wl_target:
-    wl_errors.append("Target is required.")
+    wl_missing.append("Target")
 if not wl_thesis or not wl_thesis.strip():
-    wl_errors.append("A one-line thesis is required.")
-for e in wl_errors:
-    st.warning(e)
+    wl_missing.append("Thesis")
+if wl_missing:
+    joined = wl_missing[0] if len(wl_missing) <= 1 else ", ".join(wl_missing[:-1]) + f", and {wl_missing[-1]}"
+    st.caption(f"Fill in {joined} to save.")
 
-if st.button("Add to watchlist", disabled=bool(wl_errors), type="primary"):
+if st.button("Add to watchlist", disabled=bool(wl_missing), type="primary"):
     try:
         create_page(client, settings.watchlist_db_id, {
             "Symbol": title(wl_symbol),
