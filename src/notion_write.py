@@ -78,6 +78,11 @@ def update_page(client: Client, page_id: str, properties: dict) -> None:
     client.pages.update(page_id=page_id, properties=properties)
 
 
+def archive_page(client: Client, page_id: str) -> None:
+    """Soft-delete: archives the page (recoverable from Notion's trash)."""
+    client.pages.update(page_id=page_id, archived=True)
+
+
 def create_watchlist_database(client: Client, parent_page_id: str, setup_options: list[str]) -> str:
     """One-time setup: create the Watchlist database with correctly typed properties.
 
