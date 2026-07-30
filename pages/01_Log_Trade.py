@@ -127,32 +127,54 @@ if mode == "Open new trade":
     st.subheader("Plan gate")
     st.caption("Stop, target, size, and a one-line thesis are required before this can save as Open.")
 
+    # Every widget key below is suffixed with this generation number. Bumping
+    # it after a successful save forces Streamlit to mount brand-new widget
+    # instances next render — a plain st.session_state.pop() of the old keys
+    # wasn't reliably enough to reset every field (unkeyed widgets kept their
+    # value via positional identity, and even keyed ones could show stale
+    # text left over from the previous fill).
+    gen = st.session_state.get("lt_new_trade_gen", 0)
+
     from_watchlist = st.session_state.get("wl_source_page_id")
     if from_watchlist:
-        st.caption(f"Prefilled from your watchlist plan for **{st.session_state.get('lt_symbol', '')}** "
+        # One-time bridge: Watchlist's "Trade this →" handoff writes to these
+        # fixed key names before switch_page(); copy them into this
+        # generation's actual widget keys, then consume them so a later
+        # generation (e.g. after Save) doesn't pick up stale prefill data.
+        for base_key, field_key in (
+            ("lt_symbol", f"lt_symbol_{gen}"), ("lt_stop", f"lt_stop_{gen}"),
+            ("lt_target", f"lt_target_{gen}"), ("lt_setup", f"lt_setup_{gen}"),
+            ("lt_thesis", f"lt_thesis_{gen}"),
+        ):
+            if base_key in st.session_state:
+                st.session_state[field_key] = st.session_state.pop(base_key)
+        st.caption(f"Prefilled from your watchlist plan for **{st.session_state.get(f'lt_symbol_{gen}', '')}** "
                     "— edit anything the market's moved on, then add your real fill.")
 
     c1, c2 = st.columns(2)
     with c1:
         symbol = st.selectbox("Symbol", options=symbol_options, index=None,
-                               accept_new_options=True, placeholder="e.g. PTT", key="lt_symbol")
-        account = st.selectbox("Account", options=ACCOUNTS)
-        entry_date = st.date_input("Entry date", value=date.today())
-        entry_price = st.number_input("Entry price (฿)", min_value=0.0, step=0.01, format="%.2f")
-        shares = st.number_input("Shares (size)", min_value=0, step=100)
-        commission = st.number_input("Commission (฿)", min_value=0.0, step=0.01, format="%.2f")
+                               accept_new_options=True, placeholder="e.g. PTT", key=f"lt_symbol_{gen}")
+        account = st.selectbox("Account", options=ACCOUNTS, key=f"lt_account_{gen}")
+        entry_date = st.date_input("Entry date", value=date.today(), key=f"lt_entry_date_{gen}")
+        entry_price = st.number_input("Entry price (฿)", min_value=0.0, step=0.01, format="%.2f",
+                                       key=f"lt_entry_price_{gen}")
+        shares = st.number_input("Shares (size)", min_value=0, step=100, key=f"lt_shares_{gen}")
+        commission = st.number_input("Commission (฿)", min_value=0.0, step=0.01, format="%.2f",
+                                      key=f"lt_commission_{gen}")
     with c2:
-        stop = st.number_input("Stop (฿)", min_value=0.0, step=0.01, format="%.2f", key="lt_stop")
-        target = st.number_input("Target (฿)", min_value=0.0, step=0.01, format="%.2f", key="lt_target")
+        stop = st.number_input("Stop (฿)", min_value=0.0, step=0.01, format="%.2f", key=f"lt_stop_{gen}")
+        target = st.number_input("Target (฿)", min_value=0.0, step=0.01, format="%.2f", key=f"lt_target_{gen}")
         setup = st.selectbox(
             "Setup — leave blank if this wasn't a real technical setup",
             options=setup_options, index=None, accept_new_options=True,
-            placeholder="blank on purpose is fine", key="lt_setup",
+            placeholder="blank on purpose is fine", key=f"lt_setup_{gen}",
         )
         entry_context = st.multiselect("Entry context — why did you press the button?",
-                                        options=entry_context_options, accept_new_options=True)
+                                        options=entry_context_options, accept_new_options=True,
+                                        key=f"lt_entry_context_{gen}")
         thesis = st.text_area("Thesis — one line", height=80,
-                               placeholder="Why this trade, right now, in one sentence.", key="lt_thesis")
+                               placeholder="Why this trade, right now, in one sentence.", key=f"lt_thesis_{gen}")
 
     missing = []
     if not symbol:
@@ -225,8 +247,8 @@ if mode == "Open new trade":
             st.error(f"Save failed — nothing was written.\n\n{exc}")
         else:
             st.cache_data.clear()
-            for key in ("lt_symbol", "lt_stop", "lt_target", "lt_setup", "lt_thesis", "wl_source_page_id"):
-                st.session_state.pop(key, None)
+            st.session_state["lt_new_trade_gen"] = gen + 1
+            st.session_state.pop("wl_source_page_id", None)
             st.success(f"{trade_id} saved as Open. Planned 1R: ฿{r1:,.2f}")
             st.rerun()
 
