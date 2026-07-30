@@ -170,17 +170,18 @@ def bar_chart(df: pd.DataFrame, height: int = 260):
         return
     colors = [WIN if v >= 0 else LOSS for v in df["sum"]]
     span = max(df["sum"].max(), 0) - min(df["sum"].min(), 0)
-    pad = span * 0.22 or 1
+    pad = span * 0.4 or 1
     fig = go.Figure(go.Bar(
         x=df["sum"], y=df["label"], orientation="h", marker_color=colors,
         customdata=list(zip(df["n"], df["avg"])),
         hovertemplate="<b>%{y}</b><br>n=%{customdata[0]} · sum %{x:,.2f}<br>avg %{customdata[1]:,.2f}<extra></extra>",
         text=[f"n={n}" for n in df["n"]], textposition="outside", cliponaxis=False,
+        constraintext="none",
     ))
     fig.add_vline(x=0, line_color=MUTED, opacity=0.4)
     fig.update_layout(
         height=height, xaxis_title="Sum realized P&L (฿)", yaxis_title=None,
-        margin=dict(l=140, r=40),
+        margin=dict(l=150, r=50),
         xaxis=dict(range=[min(df["sum"].min(), 0) - pad, max(df["sum"].max(), 0) + pad]),
     )
     st.plotly_chart(fig, use_container_width=True)

@@ -48,13 +48,15 @@ def fmt(v, decimals: int = 2) -> str:
 symbol_options = sorted(trades["symbol"].dropna().unique().tolist())
 setup_options = sorted(trades["setup"].dropna().unique().tolist())
 
-f1, f2, f3, f4, f5 = st.columns(5)
+f1, f2, f3 = st.columns(3)
 with f1:
     status_filter = st.multiselect("Status", options=["Open", "Closed"])
 with f2:
     symbol_filter = st.selectbox("Symbol", options=symbol_options, index=None, placeholder="All symbols")
 with f3:
     account_filter = st.multiselect("Account", options=list(ACCOUNTS))
+
+f4, f5 = st.columns(2)
 with f4:
     setup_filter = st.selectbox("Setup", options=setup_options, index=None, placeholder="All setups")
 with f5:
@@ -101,7 +103,7 @@ else:
                 result_text = row.result if pd.notna(row.result) else "—"
                 st.caption(f"{r_text} · {result_text}")
             with rc4:
-                if st.button("Correct this trade →", key=f"correct_{row.trade_id}", type="primary"):
+                if st.button("Correct this trade →", key=f"correct_{row.trade_id}"):
                     st.session_state["lt_correct_trade_id"] = row.trade_id
                     st.session_state["lt_mode"] = "Correct a trade"
                     st.switch_page("pages/01_Log_Trade.py")
