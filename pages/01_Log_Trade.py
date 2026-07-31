@@ -122,6 +122,10 @@ entry_context_options = sorted({v for lst in trades["entry_context"].dropna() fo
 symbol_options = sorted(set(trades["symbol"].dropna()) | set(data["stocks"]["symbol"].dropna()))
 exit_reason_options = ["Hit target", "Hit stop", "Trailing stop", "Partial / scale-out",
                         "Bailed early (fear)", "News-driven exit"]
+mistakes_options = sorted({v for lst in trades["mistakes"].dropna() for v in lst})
+if not mistakes_options:
+    mistakes_options = ["Held loser past stop", "Ignored plan", "Held winner too long",
+                         "Cut winner early", "Chased entry"]
 
 if mode == "Open new trade":
     st.subheader("Plan gate")
@@ -296,9 +300,12 @@ elif mode == "Add execution to open trade":
         side = st.radio("Side", ["Buy", "Sell"], horizontal=True, key="lt_exec_side")
         exec_date = st.date_input("Execution date", value=date.today(), key="lt_exec_date")
         exit_reason = None
+        mistakes_selected: list[str] = []
         if side == "Sell":
             exit_reason = st.selectbox("Exit reason (optional)", options=exit_reason_options,
                                         index=None, key="lt_exec_reason")
+            mistakes_selected = st.multiselect("Mistakes (optional)", options=mistakes_options,
+                                                accept_new_options=True, key="lt_exec_mistakes")
     with c2:
         price = st.number_input("Price (฿)", min_value=0.0, step=0.01, format="%.2f", key="lt_exec_price")
         units = st.number_input("Units", min_value=0, step=100, key="lt_exec_units")
@@ -352,6 +359,9 @@ elif mode == "Add execution to open trade":
             }
             if exit_reason:
                 trade_fields["Exit reason"] = select(exit_reason)
+            if mistakes_selected:
+                existing_mistakes = trow.mistakes if isinstance(trow.mistakes, list) else []
+                trade_fields["Mistakes"] = multi_select(sorted(set(existing_mistakes) | set(mistakes_selected)))
 
             pct_pnl = compute_pct_pnl(state_after.realized_pnl, state_after.avg_cost, state_after.buy_units_total)
             if pct_pnl is not None:
@@ -373,7 +383,7 @@ elif mode == "Add execution to open trade":
         else:
             st.cache_data.clear()
             for key in ("lt_exec_trade_id", "lt_exec_side", "lt_exec_date", "lt_exec_reason",
-                        "lt_exec_price", "lt_exec_units", "lt_exec_commission"):
+                        "lt_exec_mistakes", "lt_exec_price", "lt_exec_units", "lt_exec_commission"):
                 st.session_state.pop(key, None)
             msg = f"Execution saved. Realized P&L so far: ฿{state_after.realized_pnl:,.2f}"
             if state_after.units <= 0:
@@ -434,6 +444,11 @@ else:  # Correct a trade
         )
         thesis_value = trow.thesis if pd.notna(trow.thesis) else ""
         correct_thesis = st.text_area("Thesis", value=thesis_value, height=80, key="lt_correct_thesis")
+        correct_mistakes = st.multiselect(
+            "Mistakes", options=mistakes_options,
+            default=trow.mistakes if isinstance(trow.mistakes, list) else [],
+            accept_new_options=True, key="lt_correct_mistakes",
+        )
         recompute_1r = st.checkbox(
             "Recompute 1R from this stop", value=False, key="lt_correct_recompute_1r",
             help="Also recomputes R-multiple using this trade's current Realized P&L, "
@@ -460,6 +475,7 @@ else:  # Correct a trade
                 "Target": number(correct_target),
                 "Thesis": rich_text((correct_thesis or "").strip()),
                 "Setup": select(correct_setup),
+                "Mistakes": multi_select(correct_mistakes),
             }
             if recompute_1r:
                 buys = existing_rows[existing_rows["side"] == "Buy"].sort_values("date")
@@ -479,7 +495,7 @@ else:  # Correct a trade
         else:
             st.cache_data.clear()
             for key in ("lt_correct_symbol", "lt_correct_account", "lt_correct_stop", "lt_correct_target",
-                        "lt_correct_thesis", "lt_correct_setup", "lt_correct_recompute_1r"):
+                        "lt_correct_thesis", "lt_correct_setup", "lt_correct_mistakes", "lt_correct_recompute_1r"):
                 st.session_state.pop(key, None)
             st.success(f"{correct_trade_id} trade details saved.")
             st.rerun()
