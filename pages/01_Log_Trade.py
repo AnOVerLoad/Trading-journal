@@ -126,6 +126,10 @@ mistakes_options = sorted({v for lst in trades["mistakes"].dropna() for v in lst
 if not mistakes_options:
     mistakes_options = ["Held loser past stop", "Ignored plan", "Held winner too long",
                          "Cut winner early", "Chased entry"]
+emotion_options = sorted({v for lst in trades["emotion"].dropna() for v in lst})
+if not emotion_options:
+    emotion_options = ["Fear", "FOMO", "Greed", "Confident", "Anxious", "Overconfident"]
+grade_options = ["A", "B", "C", "D", "F"]
 
 if mode == "Open new trade":
     st.subheader("Plan gate")
@@ -301,11 +305,14 @@ elif mode == "Add execution to open trade":
         exec_date = st.date_input("Execution date", value=date.today(), key="lt_exec_date")
         exit_reason = None
         mistakes_selected: list[str] = []
+        emotion_selected: list[str] = []
         if side == "Sell":
             exit_reason = st.selectbox("Exit reason (optional)", options=exit_reason_options,
                                         index=None, key="lt_exec_reason")
             mistakes_selected = st.multiselect("Mistakes (optional)", options=mistakes_options,
                                                 accept_new_options=True, key="lt_exec_mistakes")
+            emotion_selected = st.multiselect("Emotion (optional)", options=emotion_options,
+                                               accept_new_options=True, key="lt_exec_emotion")
     with c2:
         price = st.number_input("Price (฿)", min_value=0.0, step=0.01, format="%.2f", key="lt_exec_price")
         units = st.number_input("Units", min_value=0, step=100, key="lt_exec_units")
@@ -362,6 +369,9 @@ elif mode == "Add execution to open trade":
             if mistakes_selected:
                 existing_mistakes = trow.mistakes if isinstance(trow.mistakes, list) else []
                 trade_fields["Mistakes"] = multi_select(sorted(set(existing_mistakes) | set(mistakes_selected)))
+            if emotion_selected:
+                existing_emotion = trow.emotion if isinstance(trow.emotion, list) else []
+                trade_fields["Emotion"] = multi_select(sorted(set(existing_emotion) | set(emotion_selected)))
 
             pct_pnl = compute_pct_pnl(state_after.realized_pnl, state_after.avg_cost, state_after.buy_units_total)
             if pct_pnl is not None:
@@ -383,7 +393,8 @@ elif mode == "Add execution to open trade":
         else:
             st.cache_data.clear()
             for key in ("lt_exec_trade_id", "lt_exec_side", "lt_exec_date", "lt_exec_reason",
-                        "lt_exec_mistakes", "lt_exec_price", "lt_exec_units", "lt_exec_commission"):
+                        "lt_exec_mistakes", "lt_exec_emotion", "lt_exec_price", "lt_exec_units",
+                        "lt_exec_commission"):
                 st.session_state.pop(key, None)
             msg = f"Execution saved. Realized P&L so far: ฿{state_after.realized_pnl:,.2f}"
             if state_after.units <= 0:
@@ -436,6 +447,11 @@ else:  # Correct a trade
             "Target (฿)", min_value=0.0, step=0.01, format="%.2f",
             value=float(trow.target) if pd.notna(trow.target) else 0.0, key="lt_correct_target",
         )
+        grade_idx = grade_options.index(trow.grade) if trow.grade in grade_options else None
+        correct_grade = st.selectbox(
+            "Grade", options=grade_options, index=grade_idx,
+            placeholder="Not graded", key="lt_correct_grade",
+        )
     with c2:
         setup_idx = setup_options.index(trow.setup) if trow.setup in setup_options else None
         correct_setup = st.selectbox(
@@ -448,6 +464,11 @@ else:  # Correct a trade
             "Mistakes", options=mistakes_options,
             default=trow.mistakes if isinstance(trow.mistakes, list) else [],
             accept_new_options=True, key="lt_correct_mistakes",
+        )
+        correct_emotion = st.multiselect(
+            "Emotion", options=emotion_options,
+            default=trow.emotion if isinstance(trow.emotion, list) else [],
+            accept_new_options=True, key="lt_correct_emotion",
         )
         recompute_1r = st.checkbox(
             "Recompute 1R from this stop", value=False, key="lt_correct_recompute_1r",
@@ -476,6 +497,8 @@ else:  # Correct a trade
                 "Thesis": rich_text((correct_thesis or "").strip()),
                 "Setup": select(correct_setup),
                 "Mistakes": multi_select(correct_mistakes),
+                "Emotion": multi_select(correct_emotion),
+                "Grade": select(correct_grade),
             }
             if recompute_1r:
                 buys = existing_rows[existing_rows["side"] == "Buy"].sort_values("date")
@@ -495,7 +518,8 @@ else:  # Correct a trade
         else:
             st.cache_data.clear()
             for key in ("lt_correct_symbol", "lt_correct_account", "lt_correct_stop", "lt_correct_target",
-                        "lt_correct_thesis", "lt_correct_setup", "lt_correct_mistakes", "lt_correct_recompute_1r"):
+                        "lt_correct_thesis", "lt_correct_setup", "lt_correct_mistakes", "lt_correct_emotion",
+                        "lt_correct_grade", "lt_correct_recompute_1r"):
                 st.session_state.pop(key, None)
             st.success(f"{correct_trade_id} trade details saved.")
             st.rerun()
